@@ -33,27 +33,36 @@ class AppAgent(BaseAgent):
 
     def execute(self, tool_call: ToolCall) -> ExecutionResult:
         start = time.time()
-        try:
-            func = tool_call.function.name
-            app_name = tool_call.function.arguments.get("appName")
-            if func == "open_app":
+        func = tool_call.function.name
+        app_name = tool_call.function.arguments.get("appName")
+        if not app_name:
+            output = None
+            success = False
+            error = "Missing required argument: appName"
+        elif func == "open_app":
+            try:
                 appscript_app(app_name).activate()
                 output = f"Application '{app_name}' activated successfully"
                 success = True
                 error = None
-            elif func == "close_app":
+            except Exception as e:
+                output = None
+                success = False
+                error = str(e)
+        elif func == "close_app":
+            try:
                 appscript_app(app_name).quit()
                 output = f"Application '{app_name}' closed successfully"
                 success = True
                 error = None
-            else:
+            except Exception as e:
                 output = None
                 success = False
-                error = f"Unknown function: {func}"
-        except Exception as e:
+                error = str(e)
+        else:
             output = None
             success = False
-            error = str(e)
+            error = f"Unknown function: {func}"
         duration_ms = (time.time() - start) * 1000
         logger.info("AppAgent execution", function=func, app_name=app_name, success=success, error=error)
         return ExecutionResult(success=success, output=output, error=error, duration_ms=duration_ms)
