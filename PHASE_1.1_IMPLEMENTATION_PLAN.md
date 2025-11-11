@@ -112,8 +112,9 @@ baby-ai-python/
 
 #### Step 0.1: Create Project Directory
 ```bash
-# Esempio per macOS:
-cd ~/Developer
+# Navigate to your development folder, for example:
+cd ~/Developer 
+# Create the project directory and navigate into it
 mkdir -p "Nuova Baby AI"
 cd "Nuova Baby AI"
 ```
@@ -133,19 +134,15 @@ python --version  # Verify 3.14.x
 
 #### Step 0.4: Install Dependencies
 ```bash
-# Se hai già il file requirements.txt nella cartella del progetto:
+cp /home/ubuntu/requirements.txt .
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 **Validation:**
-- [x] Python 3.14.x confirmed
-- [x] All packages installed senza errori
-- [x] `python -c "import pydantic_ai; print(pydantic_ai.__version__)"` shows 1.12.0
-
----
-**Phase 0 completata:**
-Cartella progetto, Git, virtualenv, dipendenze Python, Ollama e modelli Mistral/Nomic installati e verificati su macOS.
+- [ ] Python 3.14.x confirmed
+- [ ] All packages installed without errors
+- [ ] `python -c "import pydantic_ai; print(pydantic_ai.__version__)"` shows 1.12.0
 
 #### Step 0.5: Verify Ollama
 ```bash
