@@ -527,4 +527,20 @@ pkill -f "python -m src.main"
 
 ---
 
+### Phase 6: Testing (3 hours)
 
+#### Step 6.1: Unit Tests for App Agent (`tests/test_app_agent.py`)
+
+**Content:**
+```python
+import pytest
+from src.agents.app_agent import AppAgent
+from src.models.schemas import ToolCall, FunctionCall
+
+@pytest.mark.asyncio
+async def test_app_agent_tools():
+    """Test that AppAgent returns correct tool definitions"""
+    /* Lines 1159-1168 omitted */
+    assert open_params["required"] == ["appName"]
+
+@pytest.mark.asyncio
