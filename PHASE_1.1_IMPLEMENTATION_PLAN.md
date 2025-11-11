@@ -139,9 +139,13 @@ pip install -r requirements.txt
 ```
 
 **Validation:**
-- [ ] Python 3.14.x confirmed
-- [ ] All packages installed without errors
-- [ ] `python -c "import pydantic_ai; print(pydantic_ai.__version__)"` shows 1.12.0
+- [x] Python 3.14.x confirmed
+- [x] All packages installed senza errori
+- [x] `python -c "import pydantic_ai; print(pydantic_ai.__version__)"` shows 1.12.0
+
+---
+**Phase 0 completata:**
+Cartella progetto, Git, virtualenv, dipendenze Python, Ollama e modelli Mistral/Nomic installati e verificati su macOS.
 
 #### Step 0.5: Verify Ollama
 ```bash
