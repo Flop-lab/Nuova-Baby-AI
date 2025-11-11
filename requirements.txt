@@ -1,0 +1,139 @@
+# Baby AI - Phase 1.1 Requirements
+# Python 3.14.0 (or 3.12+ as fallback)
+# Generated: November 10, 2025
+
+# ============================================================================
+# Core Framework
+# ============================================================================
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.12.4
+pydantic-ai==1.12.0
+
+# ============================================================================
+# LLM Client
+# ============================================================================
+# NOTE: ollama-python SDK v0.6.0 (Python client library for pip)
+# This is DIFFERENT from Ollama Server v0.12.10 (macOS binary bundled with Tauri)
+# The server and SDK have independent versioning - both are latest stable as of Nov 2025
+ollama==0.6.0
+
+# ============================================================================
+# macOS Automation
+# ============================================================================
+# Note: Verify compatibility with Python 3.14 on Apple Silicon
+# If appscript has issues, consider pyobjc as fallback
+appscript==1.4.0
+
+# ============================================================================
+# Utilities
+# ============================================================================
+python-dotenv==1.0.0
+aiofiles==23.2.1
+
+# ============================================================================
+# Logging
+# ============================================================================
+structlog==23.2.0
+
+# ============================================================================
+# Testing
+# ============================================================================
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
+
+# ============================================================================
+# Bundling (Production)
+# ============================================================================
+pyinstaller==6.11.1
+
+# ============================================================================
+# Development Tools (Optional)
+# ============================================================================
+black==23.12.0
+ruff==0.1.8
+mypy==1.7.1
+
+# ============================================================================
+# Installation Instructions
+# ============================================================================
+# 1. Ensure Python 3.14.0 is installed:
+#    python3.14 --version
+#
+# 2. Create virtual environment:
+#    python3.14 -m venv venv
+#
+# 3. Activate virtual environment:
+#    source venv/bin/activate
+#
+# 4. Install dependencies:
+#    pip install -r requirements.txt
+#
+# 5. Verify Ollama Server v0.12.10 is installed:
+#    ollama --version
+#
+# 6. Pull Mistral model:
+#    ollama pull mistral:7b-instruct
+#
+# 7. Pull embedding model:
+#    ollama pull nomic-embed-text
+#
+# ============================================================================
+# Frontend Dependencies (Separate from Python Backend)
+# ============================================================================
+# The frontend uses React + TypeScript + Tailwind CSS and is managed separately
+# in the Tauri app directory with its own package.json.
+#
+# IMPORTANT: Use nvm to set Node.js version before installing frontend packages:
+#   nvm use 25
+#
+# Frontend requirements (NOT included in this file):
+# - Node.js 25.1.0 (managed via nvm)
+# - npm 11.6.2 (included with Node 25)
+# - React 19.2.0
+# - React DOM 19.2.0
+# - TypeScript 5.9.3
+# - Vite 7.2.2
+# - Tailwind CSS 4.1.17
+# - @tauri-apps/api 2.9.0
+# - @tauri-apps/cli 2.9.4 (dev dependency)
+# - Zustand 5.0.8
+# - Sonner 2.0.7
+# - Lucide React 0.553.0
+# - React Router DOM 7.9.5
+#
+# Tauri requirements (NOT included in this file):
+# - Rust 1.91.1 (for Tauri v2 compilation)
+# - Cargo 1.91.1 (Rust package manager)
+# - Tauri crate 2.9.2 (in Cargo.toml)
+#
+# To install frontend dependencies:
+#   nvm use 25
+#   cd baby-ai-desktop
+#   npm install
+#
+# To build frontend:
+#   nvm use 25
+#   cd baby-ai-desktop
+#   npm run build
+#
+# To run Tauri in dev mode:
+#   nvm use 25
+#   cd baby-ai-desktop
+#   npm run tauri dev
+#
+# ============================================================================
+# Notes
+# ============================================================================
+# - appscript may require additional system permissions on macOS
+# - If appscript fails on Python 3.14, fallback to Python 3.12 or use pyobjc
+# - PyObjC is reserved for future phases (Window Agent, System Agent, Vision Agent)
+# - Phase 1.1 uses only Appscript for high-level application control
+# - Ollama Server v0.12.10 must be running locally on port 11434 (bundled in Phase 1.1)
+# - Some packages may not have wheels for Python 3.14 yet; test before deployment
+# - Node.js 25 is required ONLY for frontend development (Vite), NOT for Python backend
+# - Use nvm to manage Node.js versions: nvm use 25
+# - Rust 1.91.1 and Cargo 1.91.1 are required for Tauri v2 desktop app compilation
+# - All versions verified compatible with Node 25.1.0 + npm 11.6.2 on November 11, 2025
