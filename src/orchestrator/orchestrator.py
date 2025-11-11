@@ -140,20 +140,30 @@ async def orchestrate_with_retry(
                 else:
                     # No tool calls - LLM provided final response
                     reply = response.message.content or "I completed the task."
+                    step_id = str(uuid.uuid4())
 
                     logger.info(
                         "orchestration_complete",
                         conversation_id=conversation_id,
+                        step_id=step_id,
                         reply_length=len(reply),
                         total_iterations=iteration
                     )
 
-                    return ChatResponse(reply=reply, trace=None)
+                    return ChatResponse(
+                        reply=reply,
+                        conversation_id=conversation_id,
+                        step_id=step_id,
+                        trace=None
+                    )
 
             # Max iterations reached
-            logger.warning("max_iterations_reached", max_iterations=max_iterations)
+            step_id = str(uuid.uuid4())
+            logger.warning("max_iterations_reached", max_iterations=max_iterations, step_id=step_id)
             return ChatResponse(
                 reply="I completed the requested actions.",
+                conversation_id=conversation_id,
+                step_id=step_id,
                 trace=None
             )
 
@@ -167,24 +177,40 @@ async def orchestrate_with_retry(
             )
 
             if retries > max_retries:
+                step_id = str(uuid.uuid4())
                 error_reply = f"I encountered a validation error after {max_retries} attempts. Please try rephrasing your request."
-                return ChatResponse(reply=error_reply, trace=None)
+                return ChatResponse(
+                    reply=error_reply,
+                    conversation_id=conversation_id,
+                    step_id=step_id,
+                    trace=None
+                )
 
             # Continue to next retry
             continue
 
         except Exception as e:
+            step_id = str(uuid.uuid4())
             logger.error(
                 "orchestration_error",
                 error=str(e),
                 error_type=type(e).__name__,
-                conversation_id=conversation_id
+                conversation_id=conversation_id,
+                step_id=step_id
             )
             error_reply = f"I encountered an unexpected error: {str(e)}"
-            return ChatResponse(reply=error_reply, trace=None)
+            return ChatResponse(
+                reply=error_reply,
+                conversation_id=conversation_id,
+                step_id=step_id,
+                trace=None
+            )
 
     # Should not reach here, but just in case
+    step_id = str(uuid.uuid4())
     return ChatResponse(
         reply="Maximum retries exceeded. Please try again.",
+        conversation_id=conversation_id,
+        step_id=step_id,
         trace=None
     )

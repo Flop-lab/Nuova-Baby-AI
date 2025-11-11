@@ -34,9 +34,15 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Response from the API"""
     reply: str = Field(description="LLM or agent reply")
+    conversation_id: Optional[str] = Field(default=None, description="Unique conversation ID")
+    step_id: Optional[str] = Field(default=None, description="Unique step ID for this turn")
     trace: Optional[AgentTrace] = Field(default=None, description="Execution trace")
 
 class ChatChunk(BaseModel):
     """Streaming response chunk"""
-    chunk: str = Field(description="Partial response chunk")
+    type: Literal["meta", "delta", "final"] = Field(description="Chunk type")
+    conversation_id: Optional[str] = Field(default=None, description="Conversation ID (meta chunk)")
+    step_id: Optional[str] = Field(default=None, description="Step ID (meta chunk)")
+    content: Optional[str] = Field(default=None, description="Partial content (delta chunk)")
+    message: Optional[str] = Field(default=None, description="Complete message (final chunk)")
     usage: Optional[Dict[str, int]] = Field(default=None, description="Token usage (final chunk only)")
