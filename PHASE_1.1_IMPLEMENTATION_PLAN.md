@@ -112,9 +112,10 @@ baby-ai-python/
 
 #### Step 0.1: Create Project Directory
 ```bash
-cd /home/ubuntu/repos/Baby-AI
-mkdir -p baby-ai-python
-cd baby-ai-python
+# Esempio per macOS:
+cd ~/Developer
+mkdir -p "Nuova Baby AI"
+cd "Nuova Baby AI"
 ```
 
 #### Step 0.2: Initialize Git (on NEWBABY7 branch)
@@ -132,7 +133,7 @@ python --version  # Verify 3.14.x
 
 #### Step 0.4: Install Dependencies
 ```bash
-cp /home/ubuntu/requirements.txt .
+# Se hai già il file requirements.txt nella cartella del progetto:
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
