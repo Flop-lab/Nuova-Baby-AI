@@ -1,10 +1,16 @@
 # Baby AI - Phase 1.1 Requirements
-# Python 3.14.0 (or 3.12+ as fallback)
-# Generated: November 10, 2025
+# Python 3.12+ compatible
+# Generated: November 11, 2025
+# Verified with Qwen3-4B-Thinking-2507-Q8_0
 
 # ============================================================================
-# Core Framework
+# Core Framework & LLM
 # ============================================================================
+# Model Configuration:
+# - Primary: qwen3:4b-thinking-2507-q8_0 (4.3GB)
+# - Fallback: qwen2.5:7b-instruct
+# - Requires: Ollama 0.12.10+
+
 ag-ui-protocol==0.1.10
 aiofiles==25.1.0
 altgraph==0.17.4
@@ -81,7 +87,8 @@ more-itertools==10.8.0
 mypy==1.18.2
 mypy_extensions==1.1.0
 nexus-rpc==1.1.0
-ollama==0.6.0
+# ollama CLI 0.12.10+ required (install separately: curl -fsSL https://ollama.com/install.sh | sh)
+# ollama Python client (install when needed: pip install ollama>=0.8.0)
 openai==2.7.2
 openapi-pydantic==0.5.1
 opentelemetry-api==1.38.0
@@ -156,3 +163,21 @@ wcwidth==0.2.14
 websockets==15.0.1
 wrapt==1.17.3
 zipp==3.23.0
+
+# ============================================================================
+# Setup Instructions for Qwen3-4B-Thinking
+# ============================================================================
+# 1. Install Ollama CLI:
+#    curl -fsSL https://ollama.com/install.sh | sh
+#
+# 2. Start Ollama service:
+#    ollama serve
+#
+# 3. Download Qwen3-4B-Thinking model:
+#    ollama pull qwen3:4b-thinking-2507-q8_0
+#
+# 4. Install Python Ollama client (if needed):
+#    pip install ollama>=0.8.0
+#
+# 5. Verify installation:
+#    ollama list | grep qwen3
