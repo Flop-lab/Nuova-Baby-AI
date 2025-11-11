@@ -784,7 +784,7 @@ Python rewrite of Baby AI with multi-agent architecture. Phase 1.1 implements th
 - macOS 13+ (Ventura or later)
 - Python 3.14.0 (or 3.12+ as fallback)
 - Ollama installed locally
-- Mistral 7B Instruct model
+- Qwen 3 4b Thinking q8_0
 
 ## Setup
 
@@ -796,7 +796,7 @@ Python rewrite of Baby AI with multi-agent architecture. Phase 1.1 implements th
 
 2. **Pull Models**
    ```bash
-   ollama pull mistral:7b-instruct
+   ollama pull 
    ollama pull nomic-embed-text
    ```
 
