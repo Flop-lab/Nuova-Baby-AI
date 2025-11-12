@@ -58,3 +58,14 @@ ollama-models/
 # Temporary files
 *.tmp
 *.bak
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/binaries/ollama
+src-tauri/binaries/ollama-*
+src-tauri/gen/
+
+# Node.js / UI
+ui/node_modules/
+ui/dist/
+node_modules/
