@@ -38,7 +38,7 @@
 | FastAPI | 0.115.0 | Backend API framework |
 | Appscript | 1.4.0 | macOS automation (Apple Events) |
 | PyInstaller | 6.16.0 | Python backend bundling |
-| Tauri | 2.5.x | Desktop app framework |
+| Tauri | 2.9.x | Desktop app framework |
 | Rust | 1.91.1 | Tauri backend language |
 | Node.js | 25.1.0 | Frontend build tooling |
 | React | 19.2.0 | Frontend UI framework |
@@ -193,7 +193,7 @@ Phase 1.1 establishes the foundational architecture for Baby AI's Python rewrite
 
 | Component | Responsibility | Technology |
 |-----------|---------------|------------|
-| **Tauri Desktop App** | Desktop wrapper, launches backend/Ollama, native OS integration | Rust + Tauri v2.5.x |
+| **Tauri Desktop App** | Desktop wrapper, launches backend/Ollama, native OS integration | Rust + Tauri v2.9.x |
 | **React Frontend** | Minimal ChatPage UI for testing | React 19 + TypeScript + Tailwind CSS |
 | **FastAPI Backend** | REST API endpoints, request/response handling | FastAPI 0.115.0 |
 | **Pydantic AI Orchestrator** | Routing, validation, retry logic | Pydantic AI v1.12.0 |
