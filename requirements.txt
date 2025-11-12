@@ -1,6 +1,6 @@
 # Baby AI - Phase 1.1 Requirements
-# Python 3.12+ compatible
-# Generated: November 11, 2025
+# Python 3.14+ compatible
+# Generated: November 12, 2025
 # Verified with Qwen3-4B-Thinking-2507-Q8_0
 
 # ============================================================================
