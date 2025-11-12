@@ -56,6 +56,9 @@ export function ChatPage() {
     try {
       if (useStreaming) {
         // Streaming mode with NDJSON reader
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -63,7 +66,10 @@ export function ChatPage() {
             message: userMessage.content,
             stream: true,
           }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.body) throw new Error('No response body');
 
@@ -119,6 +125,9 @@ export function ChatPage() {
         }
       } else {
         // Non-streaming mode
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -126,7 +135,10 @@ export function ChatPage() {
             message: userMessage.content,
             stream: false,
           }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         const data = await response.json();
 
@@ -143,10 +155,20 @@ export function ChatPage() {
         setMessages((prev) => [...prev, assistantMessage]);
       }
     } catch (error) {
+      let errorText = 'Unknown error';
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorText = 'Request timeout (>2 minutes). The AI may be processing a complex task.';
+        } else {
+          errorText = error.message;
+        }
+      }
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'error',
-        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `Error: ${errorText}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
