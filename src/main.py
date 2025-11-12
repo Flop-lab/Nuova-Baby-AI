@@ -19,7 +19,7 @@ setup_logging()
 logger = structlog.get_logger()
 
 # Global instances
-llm_client: Optional[LLMClient] = OllamaAdapter(model="qwen3:4b-thinking-2507-q8_0")
+llm_client: Optional[LLMClient] = OllamaAdapter(model="qwen3:4b-thinking-2507-q4_K_M")
 orchestrator_config = OrchestratorConfig()
 
 app = FastAPI(title="Baby AI Backend", version="1.1.0")
