@@ -400,7 +400,6 @@ export function ChatPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: userMessage.content,
-            conversation_id: conversationId,
             stream: true,
           }),
         });
@@ -433,7 +432,13 @@ export function ChatPage() {
             try {
               const data = JSON.parse(line);
 
-              if (data.type === 'token') {
+              if (data.type === 'meta') {
+                // Handle initial metadata chunk
+                if (data.conversation_id) {
+                  setConversationId(data.conversation_id);
+                }
+              } else if (data.type === 'delta') {
+                // Handle incremental content chunks
                 assistantContent += data.content;
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -442,10 +447,9 @@ export function ChatPage() {
                       : msg
                   )
                 );
-              } else if (data.type === 'done') {
-                if (data.conversation_id) {
-                  setConversationId(data.conversation_id);
-                }
+              } else if (data.type === 'final') {
+                // Final chunk - message already complete from deltas
+                // No action needed, all content already displayed
               }
             } catch (e) {
               console.error('Failed to parse NDJSON line:', line, e);
@@ -459,7 +463,6 @@ export function ChatPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: userMessage.content,
-            conversation_id: conversationId,
             stream: false,
           }),
         });
@@ -473,7 +476,7 @@ export function ChatPage() {
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.response || 'No response from backend',
+          content: data.reply || 'No response from backend',
         };
 
         setMessages((prev) => [...prev, assistantMessage]);

@@ -217,7 +217,6 @@ Phase 10 UI expects the following endpoints from the Python backend:
 ```json
 {
   "message": "Open Safari",
-  "conversation_id": "uuid-or-null",
   "stream": false
 }
 ```
@@ -225,9 +224,10 @@ Phase 10 UI expects the following endpoints from the Python backend:
 **Response:**
 ```json
 {
-  "response": "I've opened Safari for you.",
+  "reply": "I've opened Safari for you.",
   "conversation_id": "uuid",
-  "status": "success"
+  "step_id": "uuid",
+  "trace": null
 }
 ```
 
@@ -239,24 +239,40 @@ Phase 10 UI expects the following endpoints from the Python backend:
 ```json
 {
   "message": "Open Safari",
-  "conversation_id": "uuid-or-null",
   "stream": true
 }
 ```
 
 **Response:** NDJSON stream (newline-delimited JSON)
 ```
-{"type":"token","content":"I"}
-{"type":"token","content":"'ve"}
-{"type":"token","content":" opened"}
-{"type":"token","content":" Safari"}
-{"type":"done","conversation_id":"uuid","status":"success"}
+{"type":"meta","conversation_id":"uuid","step_id":"uuid"}
+{"type":"delta","content":"I"}
+{"type":"delta","content":"'"}
+{"type":"delta","content":"v"}
+{"type":"delta","content":"e"}
+{"type":"delta","content":" "}
+{"type":"delta","content":"o"}
+{"type":"delta","content":"p"}
+{"type":"delta","content":"e"}
+{"type":"delta","content":"n"}
+{"type":"delta","content":"e"}
+{"type":"delta","content":"d"}
+{"type":"delta","content":" "}
+{"type":"delta","content":"S"}
+{"type":"delta","content":"a"}
+{"type":"delta","content":"f"}
+{"type":"delta","content":"a"}
+{"type":"delta","content":"r"}
+{"type":"delta","content":"i"}
+{"type":"final","message":"I've opened Safari for you."}
 ```
 
 ### CORS Requirements
 
+**⚠️ NOTE:** CORS is **ONLY needed for Phase 10 development**. In Phase 9 (Tauri desktop app), the UI and backend will run inside the same app bundle, so CORS will not be needed and should be removed or restricted.
+
 The Python backend **MUST** allow CORS from:
-- `http://localhost:5173` (Vite dev server)
+- `http://localhost:5173` (Vite dev server - Phase 10 only)
 
 **Backend CORS Configuration:**
 ```python
