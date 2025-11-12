@@ -25,7 +25,7 @@ This document provides a **complete, step-by-step guide** for Phase 9 (Tauri Int
 
 Before starting Phase 9, you must have completed:
 - ✅ Phase 1-8: Python backend with AppAgent (2 commands) - **COMPLETED**
-- ✅ Phase 10: React UI with Vite - **TO BE IMPLEMENTED**
+- ✅ Phase 10: React UI with Vite - **✅ COMPLETED**
 - ✅ All unit and integration tests passing - **17/17 TESTS PASSING**
 
 ---
@@ -49,8 +49,8 @@ Before starting Phase 9, you must have completed:
 
 ### Architecture Decisions
 
-1. **Project Structure:** Single repository structure adapted to your existing layout
-   - `backend/` - Python FastAPI backend (moved from `src/`)
+1. **Project Structure:** Single repository structure preserving your existing layout
+   - `src/` - Python FastAPI backend (KEEP IN ROOT - no move)
    - `ui/` - React + Vite frontend (from Phase 10)
    - `src-tauri/` - Tauri Rust wrapper (new)
 
@@ -73,17 +73,22 @@ Before starting Phase 9, you must have completed:
 
 ### Step 9A.1: Project Structure Setup
 
-**Current structure (your existing project):**
+**Current structure (your existing project - PHASE 1.1 + PHASE 10 COMPLETED):**
 ```
 /Users/alessandro/Nuova Baby AI/
-├── src/                          # Current Python backend
+├── src/                          # Python backend (KEEP HERE)
 │   ├── agents/
 │   │   └── app_agent.py
 │   ├── orchestrator/
 │   ├── models/
 │   ├── utils/
 │   └── main.py
-├── tests/                        # Existing tests
+├── tests/                        # Python tests (KEEP HERE)
+├── ui/                           # React UI (Phase 10 ✅ COMPLETED)
+│   ├── src/
+│   ├── dist/                     # Built assets
+│   ├── package.json
+│   └── vite.config.ts
 ├── requirements.txt              # Python dependencies
 ├── requirements-lock.txt         # Locked versions
 └── [documentation files]
@@ -92,55 +97,46 @@ Before starting Phase 9, you must have completed:
 **Target structure (after Phase 9A.1):**
 ```
 /Users/alessandro/Nuova Baby AI/
-├── backend/                      # MOVED: Python backend
-│   ├── src/                     # Moved from root src/
-│   │   ├── agents/
-│   │   ├── orchestrator/
-│   │   ├── models/
-│   │   ├── utils/
-│   │   └── main.py
-│   ├── tests/                   # Moved from root tests/
-│   ├── backend_entry.py         # NEW: PyInstaller entry point
-│   ├── pyinstaller.spec         # NEW: PyInstaller config
-│   ├── requirements.txt         # Moved from root
-│   └── requirements-lock.txt    # Moved from root
-├── ui/                          # From Phase 10
+├── src/                          # Python backend (NO MOVE - KEEP IN ROOT)
+│   ├── agents/
+│   ├── orchestrator/
+│   ├── models/
+│   ├── utils/
+│   └── main.py
+├── tests/                        # Python tests (NO MOVE - KEEP IN ROOT)
+├── ui/                           # React UI (Phase 10 ✅ COMPLETED)
 │   ├── src/
-│   ├── public/
+│   ├── dist/                     # Built assets
 │   ├── package.json
-│   ├── vite.config.ts
-│   └── dist/                    # Built assets (after npm run build)
-├── src-tauri/                   # NEW: Tauri wrapper
+│   └── vite.config.ts
+├── src-tauri/                    # NEW: Tauri wrapper
 │   ├── src/
 │   │   ├── main.rs
 │   │   └── backend_manager.rs
-│   ├── binaries/                # NEW: Bundled binaries
-│   │   └── ollama               # Universal binary
+│   ├── binaries/                 # NEW: Bundled binaries
+│   │   └── ollama                # Universal binary
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   └── build.rs
-├── scripts/                     # NEW: Helper scripts
+├── scripts/                      # NEW: Helper scripts
 │   └── fetch_ollama.sh
-├── rust-toolchain.toml          # NEW: Pin Rust version
+├── backend_entry.py              # NEW: PyInstaller entry point (ROOT)
+├── pyinstaller.spec              # NEW: PyInstaller config (ROOT)
+├── rust-toolchain.toml           # NEW: Pin Rust version
+├── requirements.txt              # Python dependencies (KEEP IN ROOT)
+├── requirements-lock.txt         # Locked versions (KEEP IN ROOT)
 └── [existing documentation files]
 ```
 
-**Commands to restructure:**
+**Commands to setup (NO directory moves needed):**
 ```bash
 cd "/Users/alessandro/Nuova Baby AI"
 
-# Create new directories
-mkdir -p backend ui src-tauri/src src-tauri/binaries scripts
+# Create new directories only
+mkdir -p src-tauri/src src-tauri/binaries scripts
 
-# Move Python backend
-mv src backend/src
-mv tests backend/tests
-mv requirements.txt backend/
-mv requirements-lock.txt backend/
-
-# UI will be created in Phase 10 (create placeholder for now)
-mkdir -p ui/dist
-echo '<!DOCTYPE html><html><body>Baby AI Loading...</body></html>' > ui/dist/index.html
+# src/, tests/, ui/ already exist - DO NOT MOVE them
+# backend_entry.py and pyinstaller.spec will be created in root in Step 9B.1 and 9B.2
 ```
 
 ---
@@ -320,7 +316,7 @@ strip = true
       "binaries/ollama"
     ],
     "resources": [
-      "backend/dist/babyai-backend/*"
+      "dist/babyai-backend/*"
     ]
   },
   "plugins": {}
@@ -612,13 +608,13 @@ impl BackendManager {
     
     fn start_dev_backend(&self, ollama_api_base: &str) -> Result<Child, String> {
         println!("  Using development Python backend...");
-        
+
         // Use your Python 3.14
         let python_bin = "python3";
-        
+
         Command::new(python_bin)
             .args(&["-m", "uvicorn", "src.main:app", "--host", "127.0.0.1", "--port", "8000"])
-            .current_dir("backend")
+            .current_dir(".")  // Project root (src/ is in root)
             .env("OLLAMA_API_BASE", ollama_api_base)
             .stdout(if cfg!(debug_assertions) { Stdio::inherit() } else { Stdio::null() })
             .stderr(if cfg!(debug_assertions) { Stdio::inherit() } else { Stdio::null() })
@@ -628,19 +624,19 @@ impl BackendManager {
     
     fn start_bundled_backend(&self, ollama_api_base: &str) -> Result<Child, String> {
         println!("  Using bundled Python backend...");
-        
+
         let exe_dir = env::current_exe()
             .map_err(|e| format!("Failed to get exe dir: {}", e))?
             .parent()
             .ok_or("No parent dir")?
             .to_path_buf();
-        
-        let backend_binary = exe_dir.join("../Resources/backend/dist/babyai-backend/babyai-backend");
-        
+
+        let backend_binary = exe_dir.join("../Resources/dist/babyai-backend/babyai-backend");
+
         if !backend_binary.exists() {
             return Err(format!("Bundled backend not found at: {:?}", backend_binary));
         }
-        
+
         Command::new(&backend_binary)
             .env("OLLAMA_API_BASE", ollama_api_base)
             .stdout(Stdio::null())
@@ -738,7 +734,7 @@ fn main() {
 cd "/Users/alessandro/Nuova Baby AI"
 
 # Verify structure
-ls -la backend/src/main.py  # Should exist
+ls -la src/main.py  # Should exist (in root src/)
 ls -la src-tauri/binaries/ollama  # Should exist
 ```
 
@@ -780,7 +776,7 @@ curl http://127.0.0.1:8000/health
 
 ### Step 9B.1: Create PyInstaller Entry Point
 
-**Create `backend/backend_entry.py`:**
+**Create `backend_entry.py` in project root:**
 
 ```python
 """
@@ -791,7 +787,7 @@ import sys
 import os
 import uvicorn
 
-# Add src to Python path
+# Add src to Python path (src/ is in the same directory as this file)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def main():
@@ -811,7 +807,7 @@ if __name__ == "__main__":
 
 ### Step 9B.2: Create PyInstaller Spec File
 
-**Create `backend/pyinstaller.spec`:**
+**Create `pyinstaller.spec` in project root:**
 
 ```python
 # -*- mode: python ; coding: utf-8 -*-
@@ -891,12 +887,12 @@ coll = COLLECT(
 ### Step 9B.3: Build Python Backend with PyInstaller
 
 ```bash
-cd "/Users/alessandro/Nuova Baby AI/backend"
+cd "/Users/alessandro/Nuova Baby AI"
 
 # Install PyInstaller (using your Python 3.14)
 pip install pyinstaller==6.16.0
 
-# Build backend binary
+# Build backend binary (from project root)
 pyinstaller pyinstaller.spec --clean
 
 # Verify output
@@ -909,7 +905,7 @@ ls -lh dist/babyai-backend/
 **Test bundled backend:**
 ```bash
 # Test bundled backend (start Ollama first if needed)
-cd "/Users/alessandro/Nuova Baby AI/backend/dist/babyai-backend"
+cd "/Users/alessandro/Nuova Baby AI/dist/babyai-backend"
 ./babyai-backend
 
 # In another terminal:
@@ -922,24 +918,24 @@ pkill babyai-backend
 
 ---
 
-### Step 9B.4: Build UI Assets (Phase 10 Dependency)
+### Step 9B.4: Build UI Assets (Phase 10 ✅ COMPLETED)
 
-**Note:** This step requires Phase 10 to be completed first.
+**Note:** Phase 10 is already completed. Verify the UI build exists.
 
 ```bash
 cd "/Users/alessandro/Nuova Baby AI/ui"
 
-# Install dependencies (when Phase 10 is done)
-npm install
+# Verify dependencies installed
+ls node_modules/  # Should exist
 
-# Build production assets
-npm run build
-
-# Verify output
+# Verify production build exists (or rebuild if needed)
 ls -lh dist/
 # Should show:
 # index.html
 # assets/ (JS, CSS)
+
+# If dist/ is missing, rebuild:
+npm run build
 ```
 
 ---
@@ -1084,10 +1080,10 @@ chmod 755 src-tauri/binaries/ollama
 python3 --version
 
 # Check backend structure
-ls backend/src/main.py
+ls src/main.py
 
-# Try running backend manually
-cd backend
+# Try running backend manually (from project root)
+cd "/Users/alessandro/Nuova Baby AI"
 python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -1117,10 +1113,10 @@ ls ui/dist/index.html
 
 Phase 9 is complete when:
 
-- [x] **Structure:** Proper directory structure with `backend/`, `ui/`, `src-tauri/`
+- [x] **Structure:** Proper directory structure with `src/`, `ui/`, `src-tauri/` (preserving existing layout)
 - [x] **Rust:** Toolchain 1.91.1 installed, Tauri 2.9.x installed
 - [x] **Ollama:** Universal binary downloaded and verified (SHA256 correct)
-- [x] **Backend:** PyInstaller builds standalone executable
+- [x] **Backend:** PyInstaller builds standalone executable (in root dist/)
 - [x] **Dev Mode:** `cargo tauri dev` starts all services automatically
 - [x] **Production:** `cargo tauri build` creates working DMG
 - [x] **Lifecycle:** Processes start on app launch, stop on app quit
@@ -1132,10 +1128,10 @@ Phase 9 is complete when:
 
 After completing Phase 9:
 
-1. **Phase 10:** React UI implementation (if not already done)
-2. **Integration:** Verify UI connects to bundled backend
-3. **Testing:** Complete end-to-end testing
-4. **Distribution:** Prepare for signed releases
+1. **Phase 10:** ✅ React UI implementation (ALREADY COMPLETED)
+2. **Integration:** Verify UI connects to bundled backend in Tauri app
+3. **Testing:** Complete end-to-end testing of standalone .dmg
+4. **Distribution:** Prepare for signed releases (future phase)
 
 ---
 
