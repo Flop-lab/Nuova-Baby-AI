@@ -177,8 +177,8 @@ def open_app(appName: str) -> dict:
 **Add to `requirements.txt`:**
 
 ```
-pyobjc-framework-Cocoa==10.3.1
-pyobjc-framework-Quartz==10.3.1
+pyobjc-framework-Cocoa==12.0
+pyobjc-framework-Quartz==12.0
 ```
 
 **External tools (optional, graceful degradation):**
@@ -213,12 +213,12 @@ If missing, return helpful error: `"ImageMagick not installed. Install with: bre
 
 Add:
 ```
-pyobjc-framework-Cocoa==10.3.1
+pyobjc-framework-Cocoa==12.0
 ```
 
 Install:
 ```bash
-pip install pyobjc-framework-Cocoa==10.3.1
+pip install pyobjc-framework-Cocoa==12.0
 ```
 
 ### Step 11.1.2: Implement New Commands
@@ -540,7 +540,7 @@ Remember: Be helpful, friendly, and conversational!
 
 ```bash
 # Install dependencies first
-pip install pyobjc-framework-Cocoa==10.3.1
+pip install pyobjc-framework-Cocoa==12.0
 
 # Restart backend to load new code
 # (Kill existing process and restart)
@@ -1238,7 +1238,7 @@ Phase 11 is complete when:
 
 **Error:** "No module named 'AppKit'"
 
-**Fix:** `pip install pyobjc-framework-Cocoa==10.3.1`
+**Fix:** `pip install pyobjc-framework-Cocoa==12.0`
 
 ### External Tools Missing
 
