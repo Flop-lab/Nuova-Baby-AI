@@ -18,6 +18,7 @@ This document provides a **complete, step-by-step guide** for Phase 9 (Tauri Int
 - ✅ Bundled Ollama Server v0.12.10 (universal binary)
 - ✅ Bundled Python backend (PyInstaller)
 - ✅ Automatic lifecycle management (start/stop processes)
+- ✅ Dual DMG builds (separate ARM64 + Intel packages)
 - ✅ Unsigned DMG for testing
 - ✅ Complete dev and release workflows
 
@@ -59,8 +60,11 @@ Before starting Phase 9, you must have completed:
    - Auto-detects architecture at runtime
    - **SHA256 Verified:** `cd05049d4202091629403a33a5f345a584fcd86cd82e66c1fbe9c23c5f39f175`
 
-3. **Binary Distribution:** Universal DMG support
-   - Single DMG works on all Macs (Apple Silicon + Intel)
+3. **Binary Distribution:** Dual DMG strategy (separate builds)
+   - **ARM64 DMG** (~500-600MB) for Apple Silicon (M1, M2, M3, M4)
+   - **x86_64 DMG** (~500-600MB) for Intel Macs
+   - **Why not universal?** Universal DMG would be ~1GB+ (double size)
+   - Industry standard: VS Code, Docker Desktop, OBS Studio use separate downloads
    - Unsigned for Phase 1.1 POC (testing only)
 
 4. **Models Storage:** Standalone app directory
@@ -964,30 +968,121 @@ cargo tauri icon icons/icon.png
 
 ---
 
-### Step 9B.6: Build Tauri App (DMG)
+### Step 9B.6: Build Tauri App (Dual DMG Strategy)
+
+**Important:** We build **2 separate DMG files** instead of a universal binary:
+- **ARM64 DMG** (~500-600MB) for Apple Silicon Macs (M1, M2, M3, M4)
+- **x86_64 DMG** (~500-600MB) for Intel Macs
+
+**Why separate DMG files?**
+- Universal binary would be ~1GB+ (double the size)
+- Separate DMG files give users smaller downloads
+- Industry standard: VS Code, Docker Desktop, OBS Studio all use this approach
+
+---
+
+#### Build ARM64 DMG (Apple Silicon)
 
 ```bash
 cd "/Users/alessandro/Nuova Baby AI"
 
-# Build for current architecture
-cargo tauri build
+# Build for ARM64 (native on Apple Silicon)
+cargo tauri build --target aarch64-apple-darwin
 ```
 
 **Expected output:**
 ```
     Finished release [optimized] target(s) in 5m 23s
-    Bundling Baby AI.app (/Users/alessandro/Nuova Baby AI/src-tauri/target/release/bundle/macos/Baby AI.app)
-    Bundling Baby AI_0.1.0_aarch64.dmg (/Users/alessandro/Nuova Baby AI/src-tauri/target/release/bundle/dmg/Baby AI_0.1.0_aarch64.dmg)
+    Bundling Baby AI.app (/Users/alessandro/Nuova Baby AI/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Baby AI.app)
+    Bundling Baby AI_0.1.0_aarch64.dmg (/Users/alessandro/Nuova Baby AI/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Baby AI_0.1.0_aarch64.dmg)
     Finished 2 bundles at:
-        /Users/alessandro/Nuova Baby AI/src-tauri/target/release/bundle/macos/Baby AI.app
-        /Users/alessandro/Nuova Baby AI/src-tauri/target/release/bundle/dmg/Baby AI_0.1.0_aarch64.dmg
+        /Users/alessandro/Nuova Baby AI/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Baby AI.app
+        /Users/alessandro/Nuova Baby AI/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Baby AI_0.1.0_aarch64.dmg
 ```
 
-**Verify DMG:**
+**Verify ARM64 DMG:**
 ```bash
-ls -lh src-tauri/target/release/bundle/dmg/
+ls -lh src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
 # Should show:
 # Baby AI_0.1.0_aarch64.dmg (~500-600MB)
+```
+
+---
+
+#### Build x86_64 DMG (Intel)
+
+**Prerequisites:** Intel target must be installed (already done in rust-toolchain.toml)
+
+```bash
+cd "/Users/alessandro/Nuova Baby AI"
+
+# Verify Intel target is installed
+rustup target list | grep x86_64-apple-darwin
+# Should show: x86_64-apple-darwin (installed)
+
+# Build for Intel (cross-compilation on Apple Silicon)
+cargo tauri build --target x86_64-apple-darwin
+```
+
+**Expected output:**
+```
+    Finished release [optimized] target(s) in 6m 15s
+    Bundling Baby AI.app (/Users/alessandro/Nuova Baby AI/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Baby AI.app)
+    Bundling Baby AI_0.1.0_x64.dmg (/Users/alessandro/Nuova Baby AI/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/Baby AI_0.1.0_x64.dmg)
+    Finished 2 bundles at:
+        /Users/alessandro/Nuova Baby AI/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Baby AI.app
+        /Users/alessandro/Nuova Baby AI/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/Baby AI_0.1.0_x64.dmg
+```
+
+**Verify Intel DMG:**
+```bash
+ls -lh src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/
+# Should show:
+# Baby AI_0.1.0_x64.dmg (~500-600MB)
+```
+
+---
+
+#### Build Both DMG Files (Automated)
+
+**For convenience, you can build both at once:**
+
+```bash
+cd "/Users/alessandro/Nuova Baby AI"
+
+# Build ARM64 DMG
+echo "Building ARM64 DMG..."
+cargo tauri build --target aarch64-apple-darwin
+
+# Build Intel DMG
+echo "Building Intel DMG..."
+cargo tauri build --target x86_64-apple-darwin
+
+# List all DMG files
+echo "✅ DMG files created:"
+ls -lh src-tauri/target/*/release/bundle/dmg/*.dmg
+```
+
+---
+
+#### Distribution Recommendations
+
+**File naming convention:**
+- `Baby AI_0.1.0_aarch64.dmg` - For Apple Silicon (M1, M2, M3, M4)
+- `Baby AI_0.1.0_x64.dmg` - For Intel Macs
+
+**GitHub Release notes should specify:**
+```markdown
+## Downloads
+
+Choose the correct version for your Mac:
+
+- **Apple Silicon (M1, M2, M3, M4):** Download `Baby AI_0.1.0_aarch64.dmg`
+- **Intel Mac:** Download `Baby AI_0.1.0_x64.dmg`
+
+**Not sure which one?** Click  (Apple logo) → About This Mac:
+- If you see "Apple M1" or "Apple M2" or "Apple M3" or "Apple M4" → Download ARM64
+- If you see "Intel Core" → Download x64
 ```
 
 ---
