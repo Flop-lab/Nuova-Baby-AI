@@ -228,7 +228,7 @@ impl BackendManager {
             .ok_or("No parent dir")?
             .to_path_buf();
 
-        let backend_binary = exe_dir.join("../Resources/dist/babyai-backend/babyai-backend");
+        let backend_binary = exe_dir.join("../Resources/_up_/dist/babyai-backend/babyai-backend");
 
         if !backend_binary.exists() {
             return Err(format!("Bundled backend not found at: {:?}", backend_binary));

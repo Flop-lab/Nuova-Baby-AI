@@ -65,6 +65,10 @@ src-tauri/binaries/ollama
 src-tauri/binaries/ollama-*
 src-tauri/gen/
 
+# PyInstaller
+dist/
+*.spec
+
 # Node.js / UI
 ui/node_modules/
 ui/dist/

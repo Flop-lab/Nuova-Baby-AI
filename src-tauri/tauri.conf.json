@@ -49,7 +49,9 @@
     "externalBin": [
       "binaries/ollama"
     ],
-    "resources": []
+    "resources": [
+      "../dist/babyai-backend"
+    ]
   },
   "plugins": {}
 }
