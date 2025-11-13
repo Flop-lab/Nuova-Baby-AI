@@ -137,7 +137,7 @@ def browser_reload(browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 "location.reload()",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -165,7 +165,7 @@ def browser_scroll_down(browser: str = "Safari", amount: int = 300) -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 f"window.scrollBy(0, {amount})",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -191,7 +191,7 @@ def browser_scroll_up(browser: str = "Safari", amount: int = 300) -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 f"window.scrollBy(0, -{amount})",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -216,7 +216,7 @@ def browser_scroll_to_top(browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 "window.scrollTo(0, 0)",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -241,7 +241,7 @@ def browser_scroll_to_bottom(browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 "window.scrollTo(0, document.body.scrollHeight)",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -267,7 +267,7 @@ def browser_find_text(text: str, browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 f"window.find('{text}')",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -303,7 +303,7 @@ def browser_click_link(text: str, browser: str = "Safari") -> str:
                 'not found';
             }}
             """
-            result_js = appscript_app(browser).do_javascript(
+            result_js = appscript_app(browser).do_JavaScript(
                 js_code,
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -333,7 +333,7 @@ def browser_go_back(browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 "history.back()",
                 in_=appscript_app(browser).windows[1].current_tab
             )
@@ -358,7 +358,7 @@ def browser_go_forward(browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
+            appscript_app(browser).do_JavaScript(
                 "history.forward()",
                 in_=appscript_app(browser).windows[1].current_tab
             )
