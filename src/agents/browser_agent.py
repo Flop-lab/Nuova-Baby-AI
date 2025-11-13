@@ -59,11 +59,12 @@ def browser_new_tab(url: str, browser: str = "Safari") -> str:
         A success message or error description
     """
     try:
-        # For Safari - use AppleScript: tell window 1 to make new tab with properties
+        # For Safari
         if browser.lower() == "safari":
-            safari = appscript_app(browser)
-            # Make new tab in first window with URL property
-            safari.windows[1].make(new='tab', with_properties={'URL': url})
+            appscript_app(browser).make(
+                new="document",
+                with_properties={"URL": url}
+            )
         else:
             # For Chrome/Firefox
             appscript_app(browser).open_location(url)
