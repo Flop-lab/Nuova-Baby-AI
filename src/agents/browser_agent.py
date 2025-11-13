@@ -43,7 +43,8 @@ def browser_new_tab(browser: str = "Safari") -> str:
             homepage = result.stdout.strip()
 
         # Step 2 & 3: Create new tab and load homepage
-        safari = appscript_app(browser)
+        # Use explicit path to avoid Cryptexes path issues
+        safari = appscript_app('/Applications/Safari.app')
         safari.windows[1].make(new=k.tab)
         safari.windows[1].current_tab.URL.set(homepage)
 
