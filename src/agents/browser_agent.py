@@ -23,7 +23,10 @@ def browser_new_tab(browser: str = "Safari") -> str:
         A success message or error description
     """
     try:
+        logger.info("browser_new_tab_start", browser=browser)
+
         # Step 1: Read homepage from Safari preferences
+        logger.info("browser_new_tab_reading_preferences", browser=browser)
         result = subprocess.run(
             ['defaults', 'read', 'com.apple.Safari', 'HomePage'],
             capture_output=True,
@@ -41,12 +44,21 @@ def browser_new_tab(browser: str = "Safari") -> str:
             )
         else:
             homepage = result.stdout.strip()
+            logger.info("browser_new_tab_homepage_read", browser=browser, homepage=homepage)
 
         # Step 2 & 3: Create new tab and load homepage
         # Use explicit path to avoid Cryptexes path issues
+        logger.info("browser_new_tab_importing_appscript", browser=browser)
         safari = appscript_app('/Applications/Safari.app')
+        logger.info("browser_new_tab_appscript_loaded", browser=browser, safari_obj=str(type(safari)))
+
+        logger.info("browser_new_tab_creating_tab", browser=browser)
         safari.windows[1].make(new=k.tab)
+        logger.info("browser_new_tab_tab_created", browser=browser)
+
+        logger.info("browser_new_tab_setting_url", browser=browser, url=homepage)
         safari.windows[1].current_tab.URL.set(homepage)
+        logger.info("browser_new_tab_url_set", browser=browser)
 
         logger.info(
             "browser_new_tab executed",
@@ -58,7 +70,7 @@ def browser_new_tab(browser: str = "Safari") -> str:
 
     except Exception as e:
         error_msg = f"Failed to open new tab in {browser}: {str(e)}"
-        logger.error("browser_new_tab failed", browser=browser, error=str(e))
+        logger.error("browser_new_tab failed", browser=browser, error=str(e), error_type=type(e).__name__)
         return error_msg
 
 
