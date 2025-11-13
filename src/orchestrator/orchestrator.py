@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import ValidationError
 from src.llm.ollama_adapter import OllamaAdapter
 from src.agents.app_agent import AppAgent
+from src.agents.browser_agent import BrowserAgent
 from src.models.schemas import ChatRequest, ChatResponse, ToolCall, AgentTrace
 from src.models.config import OrchestratorConfig
 from src.orchestrator.prompts import SYSTEM_PROMPT
@@ -48,9 +49,12 @@ async def orchestrate_with_retry(
         model=llm_client.model
     )
 
-    # Get tools from AppAgent
+    # Get tools from all agents
     tool_functions = AppAgent.get_tool_functions()
+    tool_functions.extend(BrowserAgent.get_tool_functions())
+
     available_functions = AppAgent.get_available_functions()
+    available_functions.update(BrowserAgent.get_available_functions())
 
     # Initialize message history
     messages: List[Dict[str, Any]] = [
