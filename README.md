@@ -48,11 +48,18 @@ python -c "import ollama, fastapi, pydantic; print('✅ Dependencies OK')"
 
 For detailed architecture diagrams and technical specifications, see:
 - **[PHASE_1.1_DESIGN_DOCUMENT.md](./PHASE_1.1_DESIGN_DOCUMENT.md)** - Complete system architecture with visual diagrams
+- **[AGENT_CAPABILITIES.md](./AGENT_CAPABILITIES.md)** - Unique agent capabilities and what Baby AI can do differently
 
 The design document includes:
 - High-level architecture flow (User Input → FastAPI → Pydantic AI → LLM → App Agent → macOS)
 - Tauri desktop architecture 
 - Component specifications and interactions
+
+The agent capabilities document explains:
+- What Baby AI can do differently compared to other AI assistants
+- Detailed capabilities of AppAgent (10 functions) and BrowserAgent (15 functions)
+- Multi-agent orchestration system
+- Comparisons with ChatGPT, Apple Shortcuts, and Selenium
 
 ## Prerequisites
 
