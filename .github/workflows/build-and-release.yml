@@ -92,8 +92,10 @@ jobs:
           
           echo "${OLLAMA_SHA256}  ollama" | shasum -a 256 -c -
           
-          chmod 755 ollama
-          echo "✅ Ollama binary ready ($(du -h ollama | cut -f1))"
+          # Rename binary to include target architecture for Tauri
+          mv ollama "ollama-${{ matrix.target }}"
+          chmod 755 "ollama-${{ matrix.target }}"
+          echo "✅ Ollama binary ready as ollama-${{ matrix.target }} ($(du -h "ollama-${{ matrix.target }}" | cut -f1))"
 
       - name: Install UI dependencies
         working-directory: ui
