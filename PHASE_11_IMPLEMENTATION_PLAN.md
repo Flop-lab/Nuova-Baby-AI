@@ -1,1253 +1,1298 @@
-# Phase 11: Complete Multi-Agent System - Implementation Plan
+# Phase 10.1: Pydantic AI Integration & API Corrections - Implementation Plan
 
-**Version:** 2.0
-**Date:** November 12, 2025
-**Status:** Ready for Implementation
-**Prerequisites:** Phase 1-10 (Minimal POC) completed
+**Version:** 1.1  
+**Date:** November 14, 2025  
+**Status:** Ready for Implementation  
+**Prerequisites:** Phase 10 (Minimal Chat UI) completed
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture Decisions](#architecture-decisions)
-3. [Phase 11.1: Complete AppAgent](#phase-111-complete-appagent)
-4. [Phase 11.2: BrowserAgent](#phase-112-browseragent)
-5. [Phase 11.3: WindowAgent](#phase-113-windowagent)
-6. [Phase 11.4: SystemAgent](#phase-114-systemagent)
-7. [Phase 11.5: KeyboardAgent](#phase-115-keyboardagent)
-8. [Phase 11.6: MouseAgent](#phase-116-mouseagent)
-9. [Phase 11.7: ClipboardAgent](#phase-117-clipboardagent)
-10. [Phase 11.8: DisplayAgent](#phase-118-displayagent)
-11. [Phase 11.9: MediaAgent](#phase-119-mediaagent)
-12. [Phase 11.10: FinderAgent](#phase-1110-finderagent)
-13. [Final Integration & Testing](#final-integration--testing)
+2. [Errata from Phase 10](#errata-from-phase-10)
+3. [Pydantic AI Backend Context](#pydantic-ai-backend-context)
+4. [Corrected API Contract](#corrected-api-contract)
+5. [Updated TypeScript Interfaces](#updated-typescript-interfaces)
+6. [Updated ChatPage Implementation](#updated-chatpage-implementation)
+7. [Developer Questions Answered](#developer-questions-answered)
+8. [Integration Steps](#integration-steps)
+9. [Verification Checklist](#verification-checklist)
+10. [Future Enhancements](#future-enhancements)
 
 ---
 
 ## Overview
 
-### Implementation Approach
+### Purpose
 
-Each phase follows the same pattern:
+Phase 10.1 provides **corrections and enhancements** to Phase 10 (Minimal Chat UI). This document addresses:
 
-1. **Implement Agent Commands** - Add new standalone functions to agent file
-2. **Update get_tool_functions()** - Register new functions with Ollama SDK
-3. **Add Unit Tests** - Test each function individually
-4. **Add Integration Tests** - Test via actual macOS APIs (macOS only)
-5. **Manual Testing** - Test via Tauri UI or curl against `/api/chat`
-6. **Commit** - Commit changes before moving to next agent
+1. **API Schema Mismatches** discovered between Phase 10 documentation and the actual Phase 1.1 backend
+2. **Pydantic AI Integration** - explaining how the UI integrates with a Pydantic AI-powered backend
+3. **Updated Implementation** - corrected TypeScript interfaces and ChatPage component code
 
-### Estimated Timeline
+### What Changed from Phase 10
 
-**Total:** ~40 hours (1 week)
+**Phase 10 had these issues:**
+- ❌ Used `response` field → Backend actually uses `reply`
+- ❌ Used `token`/`done` chunk types → Backend uses `meta`/`delta`/`final`
+- ❌ Missing `step_id` and `trace` fields
+- ❌ Included `status` field → Backend doesn't return it
+- ❌ No mention of Pydantic AI orchestrator
 
-| Phase | Agent | Commands | Time |
-|-------|-------|----------|------|
-| 11.1 | AppAgent | 10 total (2 existing + 8 new) | 4h |
-| 11.2 | BrowserAgent | 15 | 6h |
-| 11.3 | WindowAgent | 10 | 4h |
-| 11.4 | SystemAgent | 12 | 5h |
-| 11.5 | KeyboardAgent | 5 | 3h |
-| 11.6 | MouseAgent | 8 | 4h |
-| 11.7 | ClipboardAgent | 4 | 2h |
-| 11.8 | DisplayAgent | 5 | 3h |
-| 11.9 | MediaAgent | 15 | 5h |
-| 11.10 | FinderAgent | 8 | 4h |
+**Phase 10.1 fixes:**
+- ✅ Correct field names (`reply`, `step_id`, `trace`)
+- ✅ Correct streaming chunk types (`meta`, `delta`, `final`)
+- ✅ Pydantic AI context and integration guide
+- ✅ Updated TypeScript interfaces
+- ✅ Updated ChatPage implementation
+- ✅ Answers to developer questions
 
-**Total Commands:** 92
+### Important Note
+
+**Phase 10.1 does NOT add Pydantic AI code to the UI.** Pydantic AI is a Python framework that runs in the backend. This document explains how the React UI integrates with a backend powered by Pydantic AI via HTTP API.
 
 ---
 
-## Architecture Decisions
+## Errata from Phase 10
 
-### 1. Synchronous Functions (Not Async)
+### Critical API Schema Corrections
 
-**Current architecture works with synchronous functions:**
+#### 1. Non-Streaming Response Schema
 
-```python
-def open_app(appName: str) -> str:
-    """Open a macOS application by name."""
-    try:
-        appscript_app(appName).activate()
-        return f"Application '{appName}' activated successfully"
-    except Exception as e:
-        return f"Failed to open '{appName}': {str(e)}"
+**Phase 10 (INCORRECT):**
+```json
+{
+  "response": "I've opened Safari for you.",
+  "conversation_id": "uuid",
+  "status": "success"
+}
 ```
 
-**Rationale:**
-- ✅ Works perfectly with Ollama SDK tool calling
-- ✅ FastAPI handles async at endpoint level
-- ✅ No need for async/await complexity
-- ✅ Simpler error handling
-
-### 2. Standalone Functions (Not Static Methods)
-
-**Pattern:**
-
-```python
-# ✅ CORRECT (standalone function)
-def list_running_apps() -> str:
-    """List all currently running applications."""
-    # implementation
-
-# ❌ WRONG (static method)
-class AppAgent:
-    @staticmethod
-    def list_running_apps() -> str:
-        # implementation
+**Phase 10.1 (CORRECT):**
+```json
+{
+  "reply": "I've opened Safari for you.",
+  "conversation_id": "uuid",
+  "step_id": "uuid",
+  "trace": null
+}
 ```
 
-**Rationale:**
-- ✅ Ollama SDK expects callable functions
-- ✅ Simpler to register with `get_tool_functions()`
-- ✅ No class instantiation needed
+**Changes:**
+- ❌ `response` → ✅ `reply`
+- ❌ `status` removed (backend doesn't return it)
+- ✅ `step_id` added (backend returns it)
+- ✅ `trace` added (optional, for debugging)
 
-### 3. Ollama SDK Native Tool Calling
+#### 2. Streaming Response Schema
 
-**Ollama SDK handles tool dispatch automatically:**
+**Phase 10 (INCORRECT):**
+```json
+{"type":"token","content":"I"}
+{"type":"token","content":"'ve"}
+{"type":"done","conversation_id":"uuid","status":"success"}
+```
 
+**Phase 10.1 (CORRECT):**
+```json
+{"type":"meta","conversation_id":"uuid","step_id":"uuid"}
+{"type":"delta","content":"I"}
+{"type":"delta","content":"'ve"}
+{"type":"final","message":"I've opened Safari for you."}
+```
+
+**Changes:**
+- ❌ `token` → ✅ `delta` (for content chunks)
+- ❌ `done` → ✅ `final` (for completion)
+- ✅ `meta` added (first chunk with conversation_id and step_id)
+- ❌ `status` removed (backend doesn't return it)
+- ✅ `final` includes complete `message` field
+
+#### 3. Health Endpoint Schema
+
+**Phase 10 mentioned (INCORRECT):**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-11-13T10:00:00Z"
+}
+```
+
+**Phase 10.1 (CORRECT - actual backend response):**
+```json
+{
+  "status": "healthy",
+  "llm_initialized": true,
+  "version": "1.1.0"
+}
+```
+
+**Changes:**
+- ❌ `timestamp` removed (backend doesn't return it)
+- ✅ `llm_initialized` added (shows if LLM is ready)
+- ✅ `version` added (backend version)
+
+---
+
+## Pydantic AI Backend Context
+
+### What is Pydantic AI?
+
+**Pydantic AI** is a Python framework for building production-grade AI agents with type safety and structured outputs.
+
+- **Website:** https://ai.pydantic.dev/
+- **Version in Baby AI:** 1.14.0
+- **Purpose:** Orchestrates LLM interactions, tool calls, and agent routing
+
+### Where Pydantic AI Runs
+
+```
+┌─────────────────────────────────────┐
+│  Phase 10 UI (React + TypeScript)   │
+│  - Runs in browser                  │
+│  - NO Pydantic AI code              │
+│  - Calls HTTP API only              │
+└──────────────┬──────────────────────┘
+               │ HTTP POST /api/chat
+               ↓
+┌─────────────────────────────────────┐
+│  Phase 1.1 Backend (Python)         │
+│  ┌───────────────────────────────┐  │
+│  │  FastAPI                      │  │
+│  │  ↓                            │  │
+│  │  Pydantic AI Orchestrator     │  │ ← Pydantic AI runs here
+│  │  ↓                            │  │
+│  │  AppAgent (open_app, close)  │  │
+│  │  ↓                            │  │
+│  │  Ollama LLM (Mistral 7B)     │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+```
+
+### How Pydantic AI Works in Baby AI Backend
+
+**1. Agent Definition**
 ```python
-# In orchestrator/orchestrator.py
-tools = AppAgent.get_tool_functions()  # Returns [open_app, close_app, ...]
-response = ollama_client.chat(
-    model="qwen2.5:7b-instruct",
-    messages=[...],
-    tools=tools  # Ollama automatically calls the right function
+from pydantic_ai import Agent
+
+agent = Agent(
+    model='ollama:mistral',
+    system_prompt='You are a macOS automation assistant',
+    tools=[open_app, close_app]
 )
 ```
 
-**No manual dispatch needed!** Ollama SDK:
-- ✅ Parses LLM tool calls
-- ✅ Executes the correct Python function
-- ✅ Returns results to LLM
-- ✅ Handles errors gracefully
+**2. Tool Registration**
+- Backend registers Python functions as "tools"
+- Pydantic AI exposes them to the LLM
+- LLM decides when to call them based on user input
 
-### 4. User Confirmation for Dangerous Commands
-
-**Dangerous commands require user confirmation:**
-
-Commands that:
-- Delete files/directories (`system_delete_file`, `system_delete_directory`)
-- Force quit apps (`force_quit_app`)
-- Modify system settings (`system_set_volume` with extreme values)
-- Execute shell commands (`system_execute_command`)
-
-**Implementation Strategy (to be implemented in Phase 11.4):**
-
-```python
-def system_delete_file(path: str, confirmed: bool = False) -> str:
-    """Delete a file (requires confirmation)."""
-    if not confirmed:
-        return f"⚠️ CONFIRMATION REQUIRED: Delete file '{path}'? This cannot be undone. Please confirm."
-
-    try:
-        os.remove(path)
-        return f"File '{path}' deleted successfully"
-    except Exception as e:
-        return f"Failed to delete '{path}': {str(e)}"
+**3. Orchestration Flow**
+```
+User: "Open Safari"
+    ↓
+Pydantic AI Orchestrator
+    ↓
+LLM analyzes intent
+    ↓
+LLM calls open_app("Safari")
+    ↓
+AppAgent executes via appscript
+    ↓
+Response: "I've opened Safari for you."
 ```
 
-**UI will handle confirmation:**
-- Tauri frontend shows confirmation dialog
-- User clicks "Confirm" or "Cancel"
-- If confirmed, command is called again with `confirmed=True`
+**4. Streaming Support**
+- Pydantic AI supports streaming token-by-token responses
+- Emits structured chunks: `meta` → `delta` → `final`
+- UI receives NDJSON stream over HTTP
 
-### 5. Return String (Not Dict)
+**5. Structured Outputs**
+- All responses validated with Pydantic models
+- Type-safe `reply`, `conversation_id`, `step_id`, `trace`
+- Ensures consistent API contract
 
-**All functions return `str` (not `dict`):**
+### Key Pydantic AI Features Used
 
-```python
-# ✅ CORRECT
-def open_app(appName: str) -> str:
-    return f"Application '{appName}' activated successfully"
-
-# ❌ WRONG
-def open_app(appName: str) -> dict:
-    return {"success": True, "result": "..."}
-```
-
-**Rationale:**
-- ✅ Ollama SDK expects string returns
-- ✅ LLM reformulates results naturally
-- ✅ Simpler error messages
-
-### 6. Dependencies
-
-**Add to `requirements.txt`:**
-
-```
-pyobjc-framework-Cocoa==10.3.1
-pyobjc-framework-Quartz==10.3.1
-```
-
-**External tools (optional, graceful degradation):**
-- ImageMagick - for advanced image operations
-- ffmpeg - for video/audio conversion
-
-If missing, return helpful error: `"ImageMagick not installed. Install with: brew install imagemagick"`
+| Feature | Purpose in Baby AI |
+|---------|-------------------|
+| **Agent** | Manages conversation with LLM |
+| **Tools** | Registers `open_app`, `close_app` |
+| **Streaming** | Token-by-token response delivery |
+| **Structured Output** | Type-safe responses with Pydantic |
+| **Conversation Tracking** | Maintains `conversation_id` across turns |
+| **Step Tracking** | Each interaction gets unique `step_id` |
+| **Trace** | Optional debugging information |
 
 ---
 
-## Phase 11.1: Complete AppAgent
+## Corrected API Contract
 
-**Goal:** Add 8 new commands to AppAgent (already has `open_app`, `close_app`)
+### Endpoint: POST /api/chat
 
-**Time:** 4 hours
-
-**Commands to implement:**
-1. ✅ `open_app` - already implemented
-2. ✅ `close_app` - already implemented
-3. ❌ `list_running_apps` - list all running apps
-4. ❌ `is_app_running` - check if app is running
-5. ❌ `focus_app` - bring app to foreground
-6. ❌ `hide_app` - hide app (keeps running)
-7. ❌ `unhide_app` - show hidden app
-8. ❌ `restart_app` - quit and reopen app
-9. ❌ `get_app_info` - get app info (bundle ID, status)
-10. ❌ `launch_app_with_file` - open app with specific file
-
-### Step 11.1.1: Add Dependencies
-
-**File:** `requirements.txt`
-
-Add:
-```
-pyobjc-framework-Cocoa==10.3.1
+**Request Schema:**
+```typescript
+interface ChatRequest {
+  message: string;           // User's message
+  conversation_id?: string;  // Optional (not used by backend yet)
+  stream: boolean;           // true for streaming, false for complete response
+}
 ```
 
-Install:
+**Important:** The backend currently does NOT use `conversation_id` from the request. It generates a new one for each conversation. Do not send it for now.
+
+### Non-Streaming Response
+
+**Request:**
 ```bash
-pip install pyobjc-framework-Cocoa==10.3.1
+POST http://127.0.0.1:8000/api/chat
+Content-Type: application/json
+
+{
+  "message": "Open Safari",
+  "stream": false
+}
 ```
 
-### Step 11.1.2: Implement New Commands
+**Response (200 OK):**
+```json
+{
+  "reply": "I've opened Safari for you.",
+  "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "step_id": "660e8400-e29b-41d4-a716-446655440001",
+  "trace": null
+}
+```
 
-**File:** `src/agents/app_agent.py`
+**Fields:**
+- `reply` (string): The assistant's response message
+- `conversation_id` (string): UUID for this conversation
+- `step_id` (string): UUID for this specific interaction step
+- `trace` (any, optional): Debugging information (usually null)
 
-**Add after `close_app()` function:**
+### Streaming Response
 
+**Request:**
+```bash
+POST http://127.0.0.1:8000/api/chat
+Content-Type: application/json
+
+{
+  "message": "Open Safari",
+  "stream": true
+}
+```
+
+**Response (200 OK, NDJSON stream):**
+```json
+{"type":"meta","conversation_id":"550e8400-e29b-41d4-a716-446655440000","step_id":"660e8400-e29b-41d4-a716-446655440001"}
+{"type":"delta","content":"I"}
+{"type":"delta","content":"'ve"}
+{"type":"delta","content":" opened"}
+{"type":"delta","content":" Safari"}
+{"type":"delta","content":" for"}
+{"type":"delta","content":" you"}
+{"type":"delta","content":"."}
+{"type":"final","message":"I've opened Safari for you."}
+```
+
+**Chunk Types:**
+
+1. **`meta` chunk (first):**
+   ```typescript
+   {
+     type: "meta";
+     conversation_id: string;
+     step_id: string;
+   }
+   ```
+   - Always the first chunk
+   - Contains conversation and step IDs
+   - UI should capture these for tracking
+
+2. **`delta` chunks (multiple):**
+   ```typescript
+   {
+     type: "delta";
+     content: string;
+   }
+   ```
+   - Token-by-token content
+   - Append each `content` to build the message
+   - May be single characters or words
+
+3. **`final` chunk (last):**
+   ```typescript
+   {
+     type: "final";
+     message: string;
+   }
+   ```
+   - Signals end of stream
+   - Contains the complete message
+   - Use this as the final assistant message
+
+### Endpoint: GET /health
+
+**Request:**
+```bash
+GET http://127.0.0.1:8000/health
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "healthy",
+  "llm_initialized": true,
+  "version": "1.1.0"
+}
+```
+
+**Fields:**
+- `status` (string): "healthy" or "unhealthy"
+- `llm_initialized` (boolean): Whether Ollama LLM is ready
+- `version` (string): Backend version
+
+---
+
+## Updated TypeScript Interfaces
+
+### File: `ui/src/types/api.ts` (NEW)
+
+Create this file with the corrected interfaces:
+
+```typescript
+// ============================================================================
+// API Types for Pydantic AI Backend
+// ============================================================================
+
+/**
+ * Request to send a chat message
+ */
+export interface ChatRequest {
+  message: string;
+  conversation_id?: string;  // Optional, not used by backend yet
+  stream: boolean;
+}
+
+/**
+ * Non-streaming response from /api/chat
+ */
+export interface ChatResponse {
+  reply: string;              // NOT "response"
+  conversation_id: string;
+  step_id: string;
+  trace?: any;                // Optional debugging info
+}
+
+/**
+ * Streaming chunk types
+ */
+export type ChunkType = "meta" | "delta" | "final";  // NOT "token" | "done"
+
+/**
+ * Meta chunk (first in stream)
+ * Contains conversation and step IDs
+ */
+export interface MetaChunk {
+  type: "meta";
+  conversation_id: string;
+  step_id: string;
+}
+
+/**
+ * Delta chunk (content tokens)
+ * Append content to build the message
+ */
+export interface DeltaChunk {
+  type: "delta";
+  content: string;
+}
+
+/**
+ * Final chunk (end of stream)
+ * Contains complete message
+ */
+export interface FinalChunk {
+  type: "final";
+  message: string;
+}
+
+/**
+ * Union type for all streaming chunks
+ */
+export type StreamChunk = MetaChunk | DeltaChunk | FinalChunk;
+
+/**
+ * Health check response
+ */
+export interface HealthResponse {
+  status: "healthy" | "unhealthy";
+  llm_initialized: boolean;
+  version: string;
+}
+
+/**
+ * Message in the chat UI
+ */
+export interface Message {
+  id: string;
+  role: "user" | "assistant" | "error";
+  content: string;
+  step_id?: string;           // Optional, from backend
+  conversation_id?: string;   // Optional, from backend
+}
+```
+
+---
+
+## Updated ChatPage Implementation
+
+### File: `ui/src/components/ChatPage.tsx` (UPDATED)
+
+Replace the ChatPage component with this corrected version:
+
+```typescript
+import { useState, useEffect, useRef } from 'react';
+import type { 
+  ChatResponse, 
+  StreamChunk, 
+  MetaChunk, 
+  DeltaChunk, 
+  FinalChunk,
+  HealthResponse,
+  Message 
+} from '../types/api';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+
+export function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Check backend health on mount and every 10 seconds
+  useEffect(() => {
+    checkBackendStatus();
+    const interval = setInterval(checkBackendStatus, 10000); // Changed from 5s to 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const checkBackendStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`);
+      const data: HealthResponse = await response.json();
+      setIsConnected(data.status === 'healthy' && data.llm_initialized);
+    } catch (error) {
+      setIsConnected(false);
+    }
+  };
+
+  const sendMessage = async (useStreaming = false) => {
+    if (!input.trim() || isLoading) return;
+
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+
+    try {
+      if (useStreaming) {
+        await handleStreamingResponse(userMessage);
+      } else {
+        await handleNonStreamingResponse(userMessage);
+      }
+    } catch (error) {
+      // Only show error if not aborted
+      if (error instanceof Error && error.name !== 'AbortError') {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'error',
+          content: `Error: ${error.message}`,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleNonStreamingResponse = async (userMessage: Message) => {
+    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: userMessage.content,
+        // Do NOT send conversation_id - backend doesn't use it yet
+        stream: false,
+      }),
+      signal: abortControllerRef.current?.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data: ChatResponse = await response.json();
+
+    // Update conversation ID if provided
+    if (data.conversation_id) {
+      setConversationId(data.conversation_id);
+    }
+
+    const assistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: data.reply,  // Use "reply" not "response"
+      step_id: data.step_id,
+      conversation_id: data.conversation_id,
+    };
+
+    setMessages((prev) => [...prev, assistantMessage]);
+  };
+
+  const handleStreamingResponse = async (userMessage: Message) => {
+    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: userMessage.content,
+        // Do NOT send conversation_id - backend doesn't use it yet
+        stream: true,
+      }),
+      signal: abortControllerRef.current?.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let assistantContent = '';
+    const assistantId = (Date.now() + 1).toString();
+    let currentStepId: string | undefined;
+    let currentConversationId: string | undefined;
+
+    // Add empty assistant message that we'll update
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: 'assistant', content: '' },
+    ]);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      // Decode and buffer incoming data
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Split by newlines to get complete JSON lines
+      const lines = buffer.split('\n');
+      
+      // Keep the last incomplete line in the buffer
+      buffer = lines.pop() || '';
+
+      // Process each complete line
+      for (const line of lines) {
+        if (!line.trim()) continue; // Skip empty lines
+
+        try {
+          const chunk: StreamChunk = JSON.parse(line);
+
+          if (chunk.type === 'meta') {
+            // First chunk: capture conversation_id and step_id
+            const metaChunk = chunk as MetaChunk;
+            currentConversationId = metaChunk.conversation_id;
+            currentStepId = metaChunk.step_id;
+            
+            if (currentConversationId) {
+              setConversationId(currentConversationId);
+            }
+          } else if (chunk.type === 'delta') {
+            // Content chunk: append to message
+            const deltaChunk = chunk as DeltaChunk;
+            assistantContent += deltaChunk.content;
+            
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? { 
+                      ...msg, 
+                      content: assistantContent,
+                      step_id: currentStepId,
+                      conversation_id: currentConversationId,
+                    }
+                  : msg
+              )
+            );
+          } else if (chunk.type === 'final') {
+            // Final chunk: use complete message
+            const finalChunk = chunk as FinalChunk;
+            
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? { 
+                      ...msg, 
+                      content: finalChunk.message,
+                      step_id: currentStepId,
+                      conversation_id: currentConversationId,
+                    }
+                  : msg
+              )
+            );
+          }
+        } catch (e) {
+          console.error('Failed to parse NDJSON line:', line, e);
+          // Continue processing other lines
+        }
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(false); // Use non-streaming by default
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header with connection status */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
+        <h1 className="text-xl font-semibold text-gray-900">Baby AI Chat</h1>
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-3 h-3 rounded-full ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            }`}
+          />
+          <span className="text-sm text-gray-600">
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+      </div>
+
+      {/* Messages area */}
+      <div
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
+      >
+        {messages.length === 0 && (
+          <div className="text-center text-gray-500 mt-8">
+            <p className="text-lg">Welcome to Baby AI!</p>
+            <p className="text-sm mt-2">
+              Powered by Pydantic AI + Ollama
+            </p>
+            <p className="text-sm mt-2">
+              Try: "Open Safari" or "Close Safari"
+            </p>
+          </div>
+        )}
+
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex ${
+              message.role === 'user' ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            <div
+              className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                message.role === 'user'
+                  ? 'bg-blue-500 text-white'
+                  : message.role === 'error'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-200 text-gray-900'
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {message.step_id && (
+                <p className="text-xs opacity-70 mt-1">
+                  Step: {message.step_id.slice(0, 8)}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Input area */}
+      <div className="px-6 py-4 bg-white border-t border-gray-200">
+        <div className="flex gap-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
+            disabled={isLoading || !isConnected}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            rows={2}
+          />
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => sendMessage(false)}
+              disabled={isLoading || !isConnected || !input.trim()}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              {isLoading ? 'Sending...' : 'Send'}
+            </button>
+            <button
+              onClick={() => sendMessage(true)}
+              disabled={isLoading || !isConnected || !input.trim()}
+              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              Stream
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-gray-500">
+            Backend: {API_BASE_URL}
+          </p>
+          {conversationId && (
+            <p className="text-xs text-gray-500">
+              Conversation: {conversationId.slice(0, 8)}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Key Changes in ChatPage
+
+1. **Corrected TypeScript interfaces** - uses `reply`, `meta`/`delta`/`final`, `step_id`
+2. **Robust NDJSON parsing** - buffers incomplete lines, handles parse errors
+3. **Meta chunk handling** - captures `conversation_id` and `step_id` from first chunk
+4. **Delta accumulation** - appends content tokens to build message
+5. **Final chunk** - uses complete message from `final.message`
+6. **AbortController** - cancels in-flight requests when sending new message
+7. **Health check** - every 10 seconds (not 5)
+8. **No conversation_id in request** - backend doesn't use it yet
+9. **Error handling** - displays HTTP errors and parse failures
+10. **Step ID display** - shows truncated step_id for debugging
+
+---
+
+## Developer Questions Answered
+
+### Question 1: conversation_id in Request?
+
+**Answer: NO, do not send it yet.**
+
+**Reason:**
+- The backend currently does NOT accept or use `conversation_id` in the request
+- Backend generates a new `conversation_id` for each conversation
+- Sending it may cause validation errors if backend uses strict Pydantic models
+
+**Future:**
+- When backend adds support for continuing conversations, we can enable this
+- Add a feature flag or environment variable to control it
+- For now, keep it commented out in the request
+
+**Code:**
+```typescript
+// Do NOT send conversation_id - backend doesn't use it yet
+body: JSON.stringify({
+  message: userMessage.content,
+  // conversation_id: conversationId,  // Disabled until backend supports it
+  stream: false,
+})
+```
+
+### Question 2: Health Check Frequency?
+
+**Answer: 10 seconds (not 5).**
+
+**Reason:**
+- 5 seconds is too frequent for a health check
+- Creates unnecessary network traffic
+- Backend health doesn't change that often
+- 10 seconds is responsive enough for UI updates
+
+**Recommendation:**
+- Use 10 seconds as default
+- Add simple backoff on failures (e.g., 20-30s after error)
+- Consider exponential backoff for production
+
+**Code:**
+```typescript
+useEffect(() => {
+  checkBackendStatus();
+  const interval = setInterval(checkBackendStatus, 10000); // 10 seconds
+  return () => clearInterval(interval);
+}, []);
+```
+
+**Future Enhancement:**
+```typescript
+const [healthCheckInterval, setHealthCheckInterval] = useState(10000);
+
+const checkBackendStatus = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`);
+    const data: HealthResponse = await response.json();
+    setIsConnected(data.status === 'healthy' && data.llm_initialized);
+    setHealthCheckInterval(10000); // Reset to normal on success
+  } catch (error) {
+    setIsConnected(false);
+    setHealthCheckInterval(30000); // Backoff to 30s on failure
+  }
+};
+```
+
+### Question 3: CORS Permissive vs Restricted?
+
+**Answer: Keep permissive `["*"]` for Phase 10 dev, not needed in Phase 9.**
+
+**Reason:**
+- Phase 10 is development/testing only
+- Permissive CORS makes development easier
+- Phase 9 (Tauri) doesn't need CORS at all (no cross-origin requests)
+- Production security is handled by Tauri's isolation
+
+**Current Backend CORS:**
 ```python
-def list_running_apps() -> str:
-    """List all currently running applications.
-
-    Returns:
-        A comma-separated list of running application names
-    """
-    try:
-        from AppKit import NSWorkspace
-        workspace = NSWorkspace.sharedWorkspace()
-        running_apps = workspace.runningApplications()
-
-        # Filter user-visible apps only (not background processes)
-        app_names = []
-        for app in running_apps:
-            name = app.localizedName()
-            # activationPolicy() == 0 means regular app (not background)
-            if name and app.activationPolicy() == 0:
-                app_names.append(name)
-
-        if app_names:
-            result = f"Running applications: {', '.join(sorted(app_names))}"
-            logger.info("list_running_apps executed", count=len(app_names), success=True)
-            return result
-        else:
-            return "No running applications found"
-    except Exception as e:
-        error_msg = f"Failed to list running applications: {str(e)}"
-        logger.error("list_running_apps failed", error=str(e))
-        return error_msg
-
-
-def is_app_running(appName: str) -> str:
-    """Check if a specific application is currently running.
-
-    Args:
-        appName: The name of the application to check (e.g., "Spotify", "Chrome")
-
-    Returns:
-        A message indicating whether the application is running
-    """
-    try:
-        from AppKit import NSWorkspace
-        workspace = NSWorkspace.sharedWorkspace()
-        running_apps = workspace.runningApplications()
-
-        for app in running_apps:
-            name = app.localizedName()
-            if name and name.lower() == appName.lower():
-                logger.info("is_app_running executed", app_name=appName, running=True)
-                return f"Yes, '{appName}' is currently running"
-
-        logger.info("is_app_running executed", app_name=appName, running=False)
-        return f"No, '{appName}' is not running"
-    except Exception as e:
-        error_msg = f"Failed to check if '{appName}' is running: {str(e)}"
-        logger.error("is_app_running failed", app_name=appName, error=str(e))
-        return error_msg
-
-
-def focus_app(appName: str) -> str:
-    """Bring an application to the foreground (same as activate).
-
-    Args:
-        appName: The name of the application to focus (e.g., "Spotify", "Chrome")
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        appscript_app(appName).activate()
-        result = f"Application '{appName}' brought to foreground"
-        logger.info("focus_app executed", app_name=appName, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to focus '{appName}': {str(e)}"
-        logger.error("focus_app failed", app_name=appName, error=str(e))
-        return error_msg
-
-
-def hide_app(appName: str) -> str:
-    """Hide a macOS application (keeps it running but invisible).
-
-    Args:
-        appName: The name of the application to hide (e.g., "Spotify", "Chrome")
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        from AppKit import NSWorkspace
-        workspace = NSWorkspace.sharedWorkspace()
-        running_apps = workspace.runningApplications()
-
-        for app in running_apps:
-            name = app.localizedName()
-            if name and name.lower() == appName.lower():
-                app.hide()
-                result = f"Application '{appName}' hidden successfully"
-                logger.info("hide_app executed", app_name=appName, success=True)
-                return result
-
-        error_msg = f"Application '{appName}' is not running"
-        logger.error("hide_app failed", app_name=appName, error="App not running")
-        return error_msg
-    except Exception as e:
-        error_msg = f"Failed to hide '{appName}': {str(e)}"
-        logger.error("hide_app failed", app_name=appName, error=str(e))
-        return error_msg
-
-
-def unhide_app(appName: str) -> str:
-    """Unhide (show) a hidden macOS application.
-
-    Args:
-        appName: The name of the application to unhide (e.g., "Spotify", "Chrome")
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        from AppKit import NSWorkspace
-        workspace = NSWorkspace.sharedWorkspace()
-        running_apps = workspace.runningApplications()
-
-        for app in running_apps:
-            name = app.localizedName()
-            if name and name.lower() == appName.lower():
-                app.unhide()
-                result = f"Application '{appName}' shown successfully"
-                logger.info("unhide_app executed", app_name=appName, success=True)
-                return result
-
-        error_msg = f"Application '{appName}' is not running"
-        logger.error("unhide_app failed", app_name=appName, error="App not running")
-        return error_msg
-    except Exception as e:
-        error_msg = f"Failed to unhide '{appName}': {str(e)}"
-        logger.error("unhide_app failed", app_name=appName, error=str(e))
-        return error_msg
-
-
-def restart_app(appName: str) -> str:
-    """Restart a macOS application (quit and reopen).
-
-    Args:
-        appName: The name of the application to restart (e.g., "Spotify", "Chrome")
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        # First quit the app
-        appscript_app(appName).quit()
-        time.sleep(1)  # Wait for app to fully quit
-
-        # Then reopen it
-        appscript_app(appName).activate()
-        result = f"Application '{appName}' restarted successfully"
-        logger.info("restart_app executed", app_name=appName, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to restart '{appName}': {str(e)}"
-        logger.error("restart_app failed", app_name=appName, error=str(e))
-        return error_msg
-
-
-def get_app_info(appName: str) -> str:
-    """Get information about a macOS application.
-
-    Args:
-        appName: The name of the application (e.g., "Spotify", "Chrome")
-
-    Returns:
-        Information about the application including bundle ID and status
-    """
-    try:
-        from AppKit import NSWorkspace
-        workspace = NSWorkspace.sharedWorkspace()
-        running_apps = workspace.runningApplications()
-
-        for app in running_apps:
-            name = app.localizedName()
-            if name and name.lower() == appName.lower():
-                bundle_id = app.bundleIdentifier() or "Unknown"
-                is_active = app.isActive()
-                is_hidden = app.isHidden()
-
-                info = f"Application: {name}\n"
-                info += f"Bundle ID: {bundle_id}\n"
-                info += f"Status: {'Active (foreground)' if is_active else 'Running in background'}\n"
-                info += f"Visibility: {'Hidden' if is_hidden else 'Visible'}"
-
-                logger.info("get_app_info executed", app_name=appName, success=True)
-                return info
-
-        error_msg = f"Application '{appName}' is not running or not found"
-        logger.error("get_app_info failed", app_name=appName, error="App not found")
-        return error_msg
-    except Exception as e:
-        error_msg = f"Failed to get info for '{appName}': {str(e)}"
-        logger.error("get_app_info failed", app_name=appName, error=str(e))
-        return error_msg
-
-
-def launch_app_with_file(appName: str, filePath: str) -> str:
-    """Launch an application and open a specific file with it.
-
-    Args:
-        appName: The name of the application (e.g., "TextEdit", "Preview")
-        filePath: The full path to the file to open (e.g., "/Users/username/document.txt")
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        import subprocess
-        # Use 'open' command with -a flag for app and file path
-        result = subprocess.run(
-            ['open', '-a', appName, filePath],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-
-        if result.returncode == 0:
-            success_msg = f"Opened '{filePath}' with '{appName}'"
-            logger.info("launch_app_with_file executed", app_name=appName, file_path=filePath, success=True)
-            return success_msg
-        else:
-            error_msg = f"Failed to open file: {result.stderr}"
-            logger.error("launch_app_with_file failed", app_name=appName, error=result.stderr)
-            return error_msg
-    except Exception as e:
-        error_msg = f"Failed to launch '{appName}' with file '{filePath}': {str(e)}"
-        logger.error("launch_app_with_file failed", app_name=appName, file_path=filePath, error=str(e))
-        return error_msg
+# backend/src/main.py
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # OK for Phase 10 dev
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 ```
 
-### Step 11.1.3: Update get_tool_functions()
+**Recommendation:**
+- **Phase 10 (dev):** Keep `["*"]` or use `["http://localhost:5173", "http://127.0.0.1:5173"]`
+- **Phase 9 (Tauri):** CORS not needed (UI and backend in same app)
+- **Production (if exposing API):** Restrict to specific origins
 
-**File:** `src/agents/app_agent.py`
+**Note:** CORS is a browser security feature. In Phase 9, the UI runs inside Tauri (not a browser origin), so CORS doesn't apply.
 
-**Replace the existing `get_tool_functions()` method:**
+### Question 4: timestamp in Health Response?
 
-```python
-@classmethod
-def get_tool_functions(cls) -> List[callable]:
-    """Return list of tool functions for Ollama SDK"""
-    return [
-        open_app,
-        close_app,
-        list_running_apps,
-        is_app_running,
-        focus_app,
-        hide_app,
-        unhide_app,
-        restart_app,
-        get_app_info,
-        launch_app_with_file,
-    ]
+**Answer: NO, backend doesn't return it.**
+
+**Reason:**
+- Phase 10 documentation mentioned `timestamp` but backend doesn't return it
+- Backend returns: `status`, `llm_initialized`, `version`
+- Don't add fields that don't exist
+
+**Correct Health Response:**
+```typescript
+interface HealthResponse {
+  status: "healthy" | "unhealthy";
+  llm_initialized: boolean;
+  version: string;
+  // NO timestamp field
+}
 ```
 
-### Step 11.1.4: Update System Prompt
+**If you want timestamp:**
+- Add it in the UI when receiving the response
+- Or request backend team to add it (but not necessary for Phase 10.1)
 
-**File:** `src/orchestrator/prompts.py`
-
-**Update SYSTEM_PROMPT to document new capabilities:**
-
-```python
-SYSTEM_PROMPT = """You are an intelligent macOS automation assistant powered by Baby AI.
-
-**IMPORTANT: Always respond in the same language as the user.**
-
-Your primary role is Function Calling:
-1. Analyze the user's request carefully
-2. Decide which tools to call (if any) to complete the task
-3. After tools execute, you'll receive their results
-4. Reformulate the results into natural, friendly language for the user
-
-## Available Tools
-
-### Application Control (10 commands)
-- open_app(appName) - Open and activate an application
-- close_app(appName) - Close an application
-- list_running_apps() - List all running applications
-- is_app_running(appName) - Check if an app is running
-- focus_app(appName) - Bring app to foreground
-- hide_app(appName) - Hide app (keeps running)
-- unhide_app(appName) - Show hidden app
-- restart_app(appName) - Restart an app
-- get_app_info(appName) - Get app details (bundle ID, status)
-- launch_app_with_file(appName, filePath) - Open app with specific file
-
-## Examples
-
-User: "What apps are running?"
-You: Call list_running_apps(), then say something like "You have Safari, Chrome, and Spotify running."
-
-User: "Is Spotify open?"
-You: Call is_app_running("Spotify"), then respond naturally.
-
-User: "Open my document.txt with TextEdit"
-You: Call launch_app_with_file("TextEdit", "/path/to/document.txt")
-
-Remember: Be helpful, friendly, and conversational!
-"""
+```typescript
+const checkBackendStatus = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`);
+    const data: HealthResponse = await response.json();
+    const timestamp = new Date().toISOString(); // Add client-side timestamp
+    console.log(`Health check at ${timestamp}:`, data);
+    setIsConnected(data.status === 'healthy' && data.llm_initialized);
+  } catch (error) {
+    setIsConnected(false);
+  }
+};
 ```
 
-### Step 11.1.5: Run Tests
+---
+
+## Integration Steps
+
+### Step 1: Add Type Definitions
+
+Create `ui/src/types/api.ts` with the interfaces from the "Updated TypeScript Interfaces" section above.
 
 ```bash
-# Install dependencies first
-pip install pyobjc-framework-Cocoa==10.3.1
+cd ui
+mkdir -p src/types
+# Create api.ts with the interfaces
+```
 
-# Restart backend to load new code
-# (Kill existing process and restart)
+### Step 2: Update ChatPage Component
+
+Replace `ui/src/components/ChatPage.tsx` with the updated version from the "Updated ChatPage Implementation" section above.
+
+```bash
+# Backup old version
+cp src/components/ChatPage.tsx src/components/ChatPage.tsx.backup
+
+# Update with new version
+# (paste the corrected code)
+```
+
+### Step 3: Verify Backend is Running
+
+Ensure the Phase 1.1 backend is running with Pydantic AI:
+
+```bash
+# In backend directory
+cd baby-ai-python
+source venv/bin/activate
 python -m src.main
 ```
 
-### Step 11.1.6: Manual Testing
+Expected output:
+```
+INFO:     Started server process
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000
+```
 
-**Test via Tauri UI or curl:**
+### Step 4: Start UI Dev Server
 
 ```bash
-# Test 1: List running apps
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What applications are running?"}'
-
-# Test 2: Check if app is running
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Is Spotify running?"}'
-
-# Test 3: Hide app
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hide Safari"}'
-
-# Test 4: Get app info
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Tell me about the Finder app"}'
-
-# Test 5: Restart app
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Restart TextEdit"}'
+cd ui
+npm run dev
 ```
 
-### Step 11.1.7: Commit Changes
-
-```bash
-git add requirements.txt
-git add src/agents/app_agent.py
-git add src/orchestrator/prompts.py
-git commit -m "feat(phase-11.1): complete AppAgent with 8 new commands
-
-- Add list_running_apps, is_app_running, focus_app
-- Add hide_app, unhide_app, restart_app
-- Add get_app_info, launch_app_with_file
-- Total: 10 AppAgent commands
-- Add pyobjc-framework-Cocoa dependency"
-
-git push
+Expected output:
 ```
+VITE v7.2.2  ready in 500 ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+```
+
+### Step 5: Test Non-Streaming
+
+1. Open http://localhost:5173
+2. Wait for green "Connected" indicator
+3. Type: "Open Safari"
+4. Click "Send" button
+5. Verify response appears in chat
+
+**Expected behavior:**
+- User message appears immediately
+- Backend processes request
+- Assistant response appears with complete message
+- Step ID shown below message (truncated)
+
+### Step 6: Test Streaming
+
+1. Type: "Close Safari"
+2. Click "Stream" button
+3. Verify response appears token-by-token
+
+**Expected behavior:**
+- User message appears immediately
+- Assistant message appears empty
+- Tokens appear one by one (streaming)
+- Final message is complete
+- Step ID shown below message
+
+### Step 7: Test Health Check
+
+1. Stop the backend server
+2. Wait 10 seconds
+3. Verify indicator turns red "Disconnected"
+4. Restart backend
+5. Wait 10 seconds
+6. Verify indicator turns green "Connected"
+
+### Step 8: Test Error Handling
+
+1. Send message with backend stopped
+2. Verify error message appears in red
+3. Restart backend
+4. Send message again
+5. Verify it works
+
+### Step 9: Verify Console Logs
+
+Open browser DevTools console and verify:
+- No CORS errors
+- No JSON parse errors
+- Health checks every 10 seconds
+- Streaming chunks logged correctly
+
+### Step 10: Test Abort Controller
+
+1. Type a message and click "Stream"
+2. Immediately type another message and click "Send"
+3. Verify first request is cancelled
+4. Verify second request completes
 
 ---
 
-## Phase 11.2: BrowserAgent
-
-**Goal:** Implement BrowserAgent with 15 commands for browser control
-
-**Time:** 6 hours
-
-**Commands to implement:**
-1. `browser_open_url(url, browser="Safari")` - Open URL in browser
-2. `browser_close_tab(browser="Safari")` - Close current tab
-3. `browser_new_tab(url, browser="Safari")` - Open new tab with URL
-4. `browser_go_back(browser="Safari")` - Navigate back
-5. `browser_go_forward(browser="Safari")` - Navigate forward
-6. `browser_reload(browser="Safari")` - Reload page
-7. `browser_get_current_url(browser="Safari")` - Get current URL
-8. `browser_get_page_title(browser="Safari")` - Get page title
-9. `browser_scroll_up(browser="Safari", amount=100)` - Scroll up
-10. `browser_scroll_down(browser="Safari", amount=100)` - Scroll down
-11. `browser_scroll_to_top(browser="Safari")` - Scroll to top
-12. `browser_scroll_to_bottom(browser="Safari")` - Scroll to bottom
-13. `browser_find_text(text, browser="Safari")` - Find text on page
-14. `browser_click_link(text, browser="Safari")` - Click link by text
-15. `browser_switch_tab(index, browser="Safari")` - Switch to tab by index
-
-### Implementation Notes
-
-**Safari support is best.** Chrome requires "Allow JavaScript from Apple Events" enabled. Firefox has limited AppleScript support.
-
-**File:** `src/agents/browser_agent.py`
-
-```python
-"""BrowserAgent: Web browser control"""
-
-import structlog
-from appscript import app as appscript_app
-from typing import List
-
-logger = structlog.get_logger()
-
-
-def browser_open_url(url: str, browser: str = "Safari") -> str:
-    """Open a URL in the specified browser.
-
-    Args:
-        url: The URL to open (e.g., "https://google.com")
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        appscript_app(browser).open_location(url)
-        result = f"Opened {url} in {browser}"
-        logger.info("browser_open_url executed", url=url, browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to open URL in {browser}: {str(e)}"
-        logger.error("browser_open_url failed", url=url, browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_close_tab(browser: str = "Safari") -> str:
-    """Close the current tab in the browser.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        appscript_app(browser).windows[1].current_tab.close()
-        result = f"Closed tab in {browser}"
-        logger.info("browser_close_tab executed", browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to close tab in {browser}: {str(e)}"
-        logger.error("browser_close_tab failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_new_tab(url: str, browser: str = "Safari") -> str:
-    """Open a new tab with the specified URL.
-
-    Args:
-        url: The URL to open in new tab
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        # For Safari
-        if browser.lower() == "safari":
-            appscript_app(browser).make(
-                new="document",
-                with_properties={"URL": url}
-            )
-        else:
-            # For Chrome/Firefox
-            appscript_app(browser).open_location(url)
-
-        result = f"Opened new tab with {url} in {browser}"
-        logger.info("browser_new_tab executed", url=url, browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to open new tab in {browser}: {str(e)}"
-        logger.error("browser_new_tab failed", url=url, browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_get_current_url(browser: str = "Safari") -> str:
-    """Get the current URL from the active tab.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        The current URL or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            url = appscript_app(browser).windows[1].current_tab.URL()
-        else:
-            url = appscript_app(browser).windows[1].active_tab.URL()
-
-        result = f"Current URL: {url}"
-        logger.info("browser_get_current_url executed", browser=browser, url=url, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to get current URL from {browser}: {str(e)}"
-        logger.error("browser_get_current_url failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_get_page_title(browser: str = "Safari") -> str:
-    """Get the title of the current page.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        The page title or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            title = appscript_app(browser).windows[1].current_tab.name()
-        else:
-            title = appscript_app(browser).windows[1].active_tab.title()
-
-        result = f"Page title: {title}"
-        logger.info("browser_get_page_title executed", browser=browser, title=title, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to get page title from {browser}: {str(e)}"
-        logger.error("browser_get_page_title failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_reload(browser: str = "Safari") -> str:
-    """Reload the current page.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                "location.reload()",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-        else:
-            appscript_app(browser).reload()
-
-        result = f"Reloaded page in {browser}"
-        logger.info("browser_reload executed", browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to reload page in {browser}: {str(e)}"
-        logger.error("browser_reload failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_scroll_down(browser: str = "Safari", amount: int = 300) -> str:
-    """Scroll down on the current page.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-        amount: Pixels to scroll down. Default: 300
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                f"window.scrollBy(0, {amount})",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Scrolled down {amount}px in {browser}"
-        logger.info("browser_scroll_down executed", browser=browser, amount=amount, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to scroll in {browser}: {str(e)}"
-        logger.error("browser_scroll_down failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_scroll_up(browser: str = "Safari", amount: int = 300) -> str:
-    """Scroll up on the current page.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-        amount: Pixels to scroll up. Default: 300
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                f"window.scrollBy(0, -{amount})",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Scrolled up {amount}px in {browser}"
-        logger.info("browser_scroll_up executed", browser=browser, amount=amount, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to scroll in {browser}: {str(e)}"
-        logger.error("browser_scroll_up failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_scroll_to_top(browser: str = "Safari") -> str:
-    """Scroll to the top of the page.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                "window.scrollTo(0, 0)",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Scrolled to top in {browser}"
-        logger.info("browser_scroll_to_top executed", browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to scroll in {browser}: {str(e)}"
-        logger.error("browser_scroll_to_top failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_scroll_to_bottom(browser: str = "Safari") -> str:
-    """Scroll to the bottom of the page.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                "window.scrollTo(0, document.body.scrollHeight)",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Scrolled to bottom in {browser}"
-        logger.info("browser_scroll_to_bottom executed", browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to scroll in {browser}: {str(e)}"
-        logger.error("browser_scroll_to_bottom failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_find_text(text: str, browser: str = "Safari") -> str:
-    """Find text on the current page.
-
-    Args:
-        text: The text to search for
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                f"window.find('{text}')",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Searched for '{text}' in {browser}"
-        logger.info("browser_find_text executed", text=text, browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to find text in {browser}: {str(e)}"
-        logger.error("browser_find_text failed", text=text, browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_click_link(text: str, browser: str = "Safari") -> str:
-    """Click a link by its visible text content.
-
-    Args:
-        text: The text content of the link to click
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            js_code = f"""
-            var links = Array.from(document.querySelectorAll('a'));
-            var link = links.find(a => a.textContent.includes('{text}'));
-            if (link) {{
-                link.click();
-                'clicked';
-            }} else {{
-                'not found';
-            }}
-            """
-            result = appscript_app(browser).do_javascript(
-                js_code,
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-            if result == 'clicked':
-                msg = f"Clicked link containing '{text}' in {browser}"
-                logger.info("browser_click_link executed", text=text, browser=browser, success=True)
-                return msg
-            else:
-                msg = f"Link containing '{text}' not found"
-                logger.warning("browser_click_link failed", text=text, browser=browser, error="Link not found")
-                return msg
-    except Exception as e:
-        error_msg = f"Failed to click link in {browser}: {str(e)}"
-        logger.error("browser_click_link failed", text=text, browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_go_back(browser: str = "Safari") -> str:
-    """Navigate back in browser history.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                "history.back()",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Navigated back in {browser}"
-        logger.info("browser_go_back executed", browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to go back in {browser}: {str(e)}"
-        logger.error("browser_go_back failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_go_forward(browser: str = "Safari") -> str:
-    """Navigate forward in browser history.
-
-    Args:
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).do_javascript(
-                "history.forward()",
-                in_=appscript_app(browser).windows[1].current_tab
-            )
-
-        result = f"Navigated forward in {browser}"
-        logger.info("browser_go_forward executed", browser=browser, success=True)
-        return result
-    except Exception as e:
-        error_msg = f"Failed to go forward in {browser}: {str(e)}"
-        logger.error("browser_go_forward failed", browser=browser, error=str(e))
-        return error_msg
-
-
-def browser_switch_tab(index: int, browser: str = "Safari") -> str:
-    """Switch to a specific tab by index.
-
-    Args:
-        index: Tab index (1-based, 1 is first tab)
-        browser: Browser name (Safari, Chrome, Firefox). Default: Safari
-
-    Returns:
-        A success message or error description
-    """
-    try:
-        if browser.lower() == "safari":
-            appscript_app(browser).windows[1].current_tab.set(
-                appscript_app(browser).windows[1].tabs[index]
-            )
-            result = f"Switched to tab {index} in {browser}"
-            logger.info("browser_switch_tab executed", index=index, browser=browser, success=True)
-            return result
-        else:
-            return f"Tab switching not supported for {browser}. Only Safari is supported."
-    except Exception as e:
-        error_msg = f"Failed to switch tab in {browser}: {str(e)}"
-        logger.error("browser_switch_tab failed", index=index, browser=browser, error=str(e))
-        return error_msg
-
-
-class BrowserAgent:
-    """Agent for web browser control"""
-
-    @classmethod
-    def get_tool_functions(cls) -> List[callable]:
-        """Return list of tool functions for Ollama SDK"""
-        return [
-            browser_open_url,
-            browser_close_tab,
-            browser_new_tab,
-            browser_get_current_url,
-            browser_get_page_title,
-            browser_reload,
-            browser_scroll_down,
-            browser_scroll_up,
-            browser_scroll_to_top,
-            browser_scroll_to_bottom,
-            browser_find_text,
-            browser_click_link,
-            browser_go_back,
-            browser_go_forward,
-            browser_switch_tab,
-        ]
+## Verification Checklist
+
+### API Contract Verification
+
+- [ ] Non-streaming response uses `reply` field (not `response`)
+- [ ] Non-streaming response includes `step_id`
+- [ ] Non-streaming response includes `conversation_id`
+- [ ] Non-streaming response includes `trace` (may be null)
+- [ ] Non-streaming response does NOT include `status` field
+- [ ] Streaming first chunk is `meta` type
+- [ ] Streaming `meta` chunk includes `conversation_id` and `step_id`
+- [ ] Streaming content chunks are `delta` type (not `token`)
+- [ ] Streaming final chunk is `final` type (not `done`)
+- [ ] Streaming `final` chunk includes complete `message`
+- [ ] Health response includes `status`, `llm_initialized`, `version`
+- [ ] Health response does NOT include `timestamp`
+
+### UI Behavior Verification
+
+- [ ] Connection indicator shows green when backend is healthy
+- [ ] Connection indicator shows red when backend is down
+- [ ] Health check runs every 10 seconds (not 5)
+- [ ] User can send messages when connected
+- [ ] Send button is disabled when disconnected
+- [ ] Non-streaming shows complete message at once
+- [ ] Streaming shows tokens appearing one by one
+- [ ] Step ID is displayed below messages (truncated)
+- [ ] Conversation ID is shown in footer (truncated)
+- [ ] Error messages appear in red when requests fail
+- [ ] CORS errors do NOT appear in console
+- [ ] JSON parse errors do NOT appear in console (or are handled gracefully)
+- [ ] Sending new message cancels in-flight streaming request
+- [ ] Chat auto-scrolls to bottom when new messages arrive
+- [ ] Enter key sends message (Shift+Enter for new line)
+
+### Pydantic AI Integration Verification
+
+- [ ] Backend is using Pydantic AI 1.14.0
+- [ ] Backend has `open_app` and `close_app` tools registered
+- [ ] LLM correctly interprets "Open Safari" command
+- [ ] LLM correctly interprets "Close Safari" command
+- [ ] Backend returns structured responses (not plain text)
+- [ ] Conversation tracking works across multiple messages
+- [ ] Step tracking provides unique ID for each interaction
+
+### Code Quality Verification
+
+- [ ] TypeScript has no type errors (`npm run typecheck`)
+- [ ] ESLint has no errors (`npm run lint`)
+- [ ] All imports are correct
+- [ ] No unused variables or imports
+- [ ] AbortController properly cleans up on unmount
+- [ ] No memory leaks from intervals or event listeners
+- [ ] Error boundaries catch React errors (if implemented)
+
+---
+
+## Future Enhancements
+
+### 1. Tool Call Progress UI
+
+**Idea:** Show when Pydantic AI is calling tools
+
+**Implementation:**
+- Backend emits additional chunk type: `tool_call`
+- UI shows "Calling open_app..." indicator
+- Provides transparency into agent actions
+
+**Example chunk:**
+```json
+{"type":"tool_call","tool":"open_app","args":{"app_name":"Safari"}}
 ```
 
-**Follow same testing and commit pattern as Phase 11.1**
-
----
-
-## Phase 11.3-11.10: Remaining Agents
-
-**NOTE:** Detailed implementation for each agent follows the same pattern as 11.1 and 11.2.
-
-Due to document length, implementation details for remaining agents will be provided upon request or during actual implementation.
-
-### Quick Summary
-
-**Phase 11.3: WindowAgent (10 commands)**
-- window_resize, window_move, window_minimize, window_maximize
-- window_fullscreen, window_tile_left, window_tile_right
-- window_center, window_get_bounds, window_close
-- **Dependency:** pyobjc-framework-Quartz
-
-**Phase 11.4: SystemAgent (12 commands)**
-- system_read_file, system_write_file, system_delete_file ⚠️
-- system_copy_file, system_move_file, system_download
-- system_list_files, system_create_directory, system_delete_directory ⚠️
-- system_get_file_info, system_file_exists, system_get_disk_space
-- **Safety:** Implement confirmation for delete operations
-
-**Phase 11.5: KeyboardAgent (5 commands)**
-- keyboard_type_text, keyboard_press_key, keyboard_hotkey
-- keyboard_press_and_hold, keyboard_release
-- **Uses:** pyautogui or pynput
-
-**Phase 11.6: MouseAgent (8 commands)**
-- mouse_move, mouse_click, mouse_double_click
-- mouse_right_click, mouse_drag, mouse_scroll
-- mouse_get_position, mouse_click_at
-- **Uses:** pyautogui or Quartz
-
-**Phase 11.7: ClipboardAgent (4 commands)**
-- clipboard_get_text, clipboard_set_text
-- clipboard_get_image, clipboard_set_image
-- **Uses:** pyperclip and PIL
-
-**Phase 11.8: DisplayAgent (5 commands)**
-- display_take_screenshot, display_get_brightness
-- display_set_brightness, display_list_displays
-- display_get_resolution
-- **Uses:** Quartz framework
-
-**Phase 11.9: MediaAgent (15 commands)**
-- media_play, media_pause, media_next_track, media_previous_track
-- media_get_current_track, media_set_volume, media_get_volume
-- media_mute, media_unmute, media_shuffle_on, media_shuffle_off
-- media_repeat_on, media_repeat_off, media_seek, media_get_playback_state
-- **Target:** Spotify, Music.app via AppleScript
-
-**Phase 11.10: FinderAgent (8 commands)**
-- finder_open_folder, finder_reveal_in_finder
-- finder_new_folder, finder_select_file
-- finder_get_selection, finder_trash_file ⚠️
-- finder_empty_trash ⚠️, finder_get_info
-- **Safety:** Implement confirmation for trash operations
-
----
-
-## Final Integration & Testing
-
-### Update Orchestrator
-
-**File:** `src/orchestrator/orchestrator.py`
-
-```python
-from src.agents.app_agent import AppAgent
-from src.agents.browser_agent import BrowserAgent
-from src.agents.window_agent import WindowAgent
-from src.agents.system_agent import SystemAgent
-from src.agents.keyboard_agent import KeyboardAgent
-from src.agents.mouse_agent import MouseAgent
-from src.agents.clipboard_agent import ClipboardAgent
-from src.agents.display_agent import DisplayAgent
-from src.agents.media_agent import MediaAgent
-from src.agents.finder_agent import FinderAgent
-
-def get_all_tools():
-    """Collect all tools from all agents"""
-    all_tools = []
-
-    all_tools.extend(AppAgent.get_tool_functions())
-    all_tools.extend(BrowserAgent.get_tool_functions())
-    all_tools.extend(WindowAgent.get_tool_functions())
-    all_tools.extend(SystemAgent.get_tool_functions())
-    all_tools.extend(KeyboardAgent.get_tool_functions())
-    all_tools.extend(MouseAgent.get_tool_functions())
-    all_tools.extend(ClipboardAgent.get_tool_functions())
-    all_tools.extend(DisplayAgent.get_tool_functions())
-    all_tools.extend(MediaAgent.get_tool_functions())
-    all_tools.extend(FinderAgent.get_tool_functions())
-
-    return all_tools
+**UI mockup:**
+```
+User: Open Safari
+Assistant: [Calling open_app(Safari)...] ← Tool call indicator
+Assistant: I've opened Safari for you.
 ```
 
-### Update System Prompt
+### 2. Trace Viewer
 
-**File:** `src/orchestrator/prompts.py`
+**Idea:** Display Pydantic AI trace for debugging
 
-Add comprehensive documentation for all 92 commands.
+**Implementation:**
+- Backend includes `trace` in response
+- UI has expandable "Debug" section
+- Shows LLM reasoning, tool calls, timing
 
-### End-to-End Testing
-
-**Complex multi-agent workflows:**
-
-```bash
-# Workflow 1: Research and save
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Open Google, search for Python tutorials, and save the URL to tutorials.txt"}'
-
-# Workflow 2: Window management
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Open Safari and TextEdit, tile Safari to the left and TextEdit to the right"}'
-
-# Workflow 3: Screenshot and organize
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Take a screenshot, save it to Desktop, create a Screenshots folder, and move it there"}'
+**UI mockup:**
+```
+Assistant: I've opened Safari for you.
+[Show Debug Info ▼]
+  - LLM Model: ollama:mistral
+  - Tokens: 45
+  - Duration: 1.2s
+  - Tool Calls: open_app("Safari")
+  - Trace: {...}
 ```
 
-### Final Commit
+### 3. Conversation History Persistence
 
-```bash
-git add .
-git commit -m "feat(phase-11): complete multi-agent system with 92 commands
+**Idea:** Save conversations to localStorage
 
-- Implement 10 agents: App, Browser, Window, System, Keyboard, Mouse, Clipboard, Display, Media, Finder
-- Total: 92 commands
-- Add user confirmation for dangerous operations
-- Update system prompt with all capabilities
-- Add comprehensive tests"
+**Implementation:**
+- Store messages with `conversation_id`
+- Load previous conversations on mount
+- Allow user to continue or start new
 
-git push
-git tag v0.2.0-phase11-complete
-git push --tags
+**Benefits:**
+- User doesn't lose context on refresh
+- Can review past interactions
+- Better UX for multi-turn conversations
+
+### 4. Multi-Agent Support
+
+**Idea:** Support multiple agents (not just AppAgent)
+
+**Implementation:**
+- Backend adds more agents (FileAgent, BrowserAgent, etc.)
+- Pydantic AI routes to appropriate agent
+- UI shows which agent handled the request
+
+**Example:**
+```
+User: Open Safari
+Assistant (AppAgent): I've opened Safari for you.
+
+User: Search for "Pydantic AI"
+Assistant (BrowserAgent): I've searched for "Pydantic AI" in Safari.
 ```
 
+### 5. Structured Tool Arguments UI
+
+**Idea:** Show tool arguments in structured format
+
+**Implementation:**
+- Parse tool call arguments from trace
+- Display as formatted JSON or table
+- Helps users understand what agent is doing
+
+**Example:**
+```
+Tool Call: open_app
+Arguments:
+  app_name: "Safari"
+  wait_for_launch: true
+```
+
+### 6. Conversation Branching
+
+**Idea:** Allow user to branch conversations
+
+**Implementation:**
+- Send `conversation_id` in request (when backend supports it)
+- UI shows conversation tree
+- User can explore different paths
+
+**Benefits:**
+- Experiment with different prompts
+- Compare agent responses
+- Better for testing and debugging
+
+### 7. Streaming Progress Indicator
+
+**Idea:** Show progress during streaming
+
+**Implementation:**
+- Count tokens received
+- Show typing indicator
+- Estimate completion time
+
+**UI mockup:**
+```
+Assistant: I've opened Safari... [●●●○○] 60%
+```
+
+### 8. Error Recovery
+
+**Idea:** Retry failed requests automatically
+
+**Implementation:**
+- Catch network errors
+- Retry with exponential backoff
+- Show retry count to user
+
+**Benefits:**
+- Better UX for flaky connections
+- Reduces user frustration
+- Handles transient errors gracefully
+
 ---
 
-## Success Criteria
+## Summary
 
-Phase 11 is complete when:
+Phase 10.1 provides critical corrections and enhancements to Phase 10:
 
-✅ All 10 agents implemented
-✅ All 92 commands functional
-✅ Ollama SDK tool calling works for all commands
-✅ Confirmation system works for dangerous operations
-✅ Manual testing successful via Tauri UI
-✅ No regressions from Phase 1-10
-✅ System prompt documents all capabilities
-✅ Code committed and tagged
+1. **API Schema Corrections** - Fixed field names and chunk types to match actual backend
+2. **Pydantic AI Integration** - Documented how UI integrates with Pydantic AI-powered backend
+3. **Updated Implementation** - Corrected TypeScript interfaces and ChatPage component
+4. **Developer Questions** - Answered all 4 questions about conversation_id, health frequency, CORS, and timestamp
+5. **Verification Checklist** - Comprehensive testing guide
+6. **Future Enhancements** - Ideas for leveraging Pydantic AI features
 
----
+**Key Takeaways:**
+- Phase 10.1 is documentation and code corrections, NOT new features
+- Pydantic AI runs in Python backend, NOT in React UI
+- UI integrates via HTTP API only
+- All corrections maintain separation of concerns (UI = React, Backend = Python + Pydantic AI)
 
-## Troubleshooting
-
-### Accessibility Permissions
-
-**Error:** "Accessibility permissions denied"
-
-**Fix:** Grant permissions in System Preferences → Security & Privacy → Privacy → Accessibility. Add Baby AI app or Terminal.
-
-### AppleScript Errors
-
-**Error:** "Application not found" or "Command failed"
-
-**Fix:**
-- Verify app name is correct (case-sensitive)
-- Check if app supports AppleScript: `osascript -e 'tell application "AppName" to get properties'`
-
-### Browser Commands Not Working
-
-**Safari:** Works best, full support
-**Chrome:** Requires "Allow JavaScript from Apple Events" in View → Developer
-**Firefox:** Limited AppleScript support, some commands may not work
-
-### PyObjC Import Errors
-
-**Error:** "No module named 'AppKit'"
-
-**Fix:** `pip install pyobjc-framework-Cocoa==10.3.1`
-
-### External Tools Missing
-
-**ImageMagick or ffmpeg not found**
-
-**Fix:** `brew install imagemagick ffmpeg`
-
-Or return helpful error to user: "ImageMagick not installed. Install with: brew install imagemagick"
+**Next Steps:**
+1. Apply the corrected TypeScript interfaces
+2. Update ChatPage component
+3. Test against Phase 1.1 backend
+4. Verify all checklist items
+5. Ready for Phase 9 (Tauri integration)
 
 ---
 
-**End of Phase 11 Implementation Plan v2.0**
+**Document Version:** 1.1  
+**Last Updated:** November 14, 2025  
+**Status:** Ready for Implementation
