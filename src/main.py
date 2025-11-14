@@ -6,23 +6,20 @@ from typing import Optional, AsyncGenerator
 import structlog
 import json
 import uuid
+import logfire  # Pydantic Logfire for observability
 
-from src.models.config import OrchestratorConfig
 from src.models.schemas import ChatRequest, ChatResponse, ChatChunk
-from src.llm.ollama_adapter import OllamaAdapter
-from src.llm.client import LLMClient
-from src.orchestrator.orchestrator import orchestrate_with_retry
+from src.agents.pydantic_agent import run_agent_non_streaming, run_agent_streaming
 from src.utils.logger import setup_logging
 
 # Setup logging
 setup_logging()
 logger = structlog.get_logger()
 
-# Global instances
-llm_client: Optional[LLMClient] = OllamaAdapter(model="qwen3:4b-thinking-2507-q4_K_M")
-orchestrator_config = OrchestratorConfig()
-
 app = FastAPI(title="Baby AI Backend", version="1.1.0")
+
+# Note: FastAPI instrumentation requires: pip install 'logfire[fastapi]'
+# For now, Pydantic AI is automatically instrumented
 
 # CORS middleware
 app.add_middleware(
@@ -33,87 +30,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-async def stream_chat_response(user_message: str) -> AsyncGenerator[str, None]:
-    """
-    Generate NDJSON streaming chunks for chat response.
-
-    Yields:
-        - Meta chunk with conversation_id and step_id
-        - Delta chunks with partial content (character by character)
-        - Final chunk with complete message
-    """
-    conversation_id = str(uuid.uuid4())
-    step_id = str(uuid.uuid4())
-
-    # Meta chunk
-    meta_chunk = ChatChunk(
-        type="meta",
-        conversation_id=conversation_id,
-        step_id=step_id
-    )
-    yield json.dumps(meta_chunk.model_dump(exclude_none=True)) + "\n"
-
-    # Get full response from orchestrator
-    response = await orchestrate_with_retry(
-        user_message=user_message,
-        llm_client=llm_client,
-        config=orchestrator_config,
-        conversation_id=conversation_id
-    )
-
-    # Delta chunks (stream character by character)
-    for char in response.reply:
-        delta_chunk = ChatChunk(
-            type="delta",
-            content=char
-        )
-        yield json.dumps(delta_chunk.model_dump(exclude_none=True)) + "\n"
-
-    # Final chunk
-    final_chunk = ChatChunk(
-        type="final",
-        message=response.reply
-    )
-    yield json.dumps(final_chunk.model_dump(exclude_none=True)) + "\n"
-
 
 @app.get("/health")
 async def health():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "llm_initialized": llm_client is not None,
+        "pydantic_ai_enabled": True,
         "version": "1.1.0"
     }
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    """Main chat endpoint with streaming support"""
+    """Main chat endpoint with streaming support using Pydantic AI"""
     try:
-        # Validate LLM client is initialized
-        if llm_client is None:
-            logger.error("llm_client_not_initialized")
-            raise HTTPException(
-                status_code=500,
-                detail="LLM client not initialized"
-            )
-
         logger.info("chat_request_received", message_length=len(request.message), stream=request.stream)
 
-        # Streaming mode
+        # Streaming mode - use Pydantic AI streaming
         if request.stream:
             return StreamingResponse(
-                stream_chat_response(request.message),
+                run_agent_streaming(request.message),
                 media_type="application/x-ndjson"
             )
 
-        # Non-streaming mode
-        response = await orchestrate_with_retry(
-            user_message=request.message,
-            llm_client=llm_client,
-            config=orchestrator_config,
-            conversation_id=None
-        )
+        # Non-streaming mode - use Pydantic AI
+        response = await run_agent_non_streaming(request.message)
 
         logger.info("chat_response_sent", reply_length=len(response.reply))
         return response
