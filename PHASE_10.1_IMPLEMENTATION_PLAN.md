@@ -1,8 +1,8 @@
 # Phase 10.1: Pydantic AI Complete Integration - Implementation Plan
 
-**Version:** 2.1 - CORRECTED (Based on Official Pydantic AI Docs)
-**Date:** November 14, 2025
-**Status:** ✅ Ready for Implementation (All Corrections Applied)
+**Version:** 1.0
+**Date:** November 15, 2025
+**Status:** ✅ Ready for Implementation
 **Prerequisites:**
 - Phase 10 (Minimal Chat UI) completed
 - Pydantic AI 1.14.0 installed (verified in requirements.txt)
@@ -20,7 +20,6 @@
 3. ✅ **Tool Decorators**: Added `RunContext` as first parameter to all tools
 4. ✅ **Result Access**: Changed `result.data` to `result.output` for `Agent[None, str]`
 5. ✅ **Instructions vs System Prompt**: Use `instructions` for single-turn requests (no history)
-6. ✅ **Logfire Integration**: Corrected parameter from `enable_logfire` to `instrument`
 
 **All code examples are now verified against official documentation.**
 
@@ -100,7 +99,6 @@ This document provides a **complete, production-ready implementation** for integ
 - ✅ **Streaming Built-in**: Native streaming support with `run_stream()`
 - ✅ **Conversation Memory**: Built-in conversation history management
 - ✅ **Tool Management**: Simplified tool registration with decorators
-- ✅ **Observability**: Better tracing and debugging with Logfire integration
 - ✅ **Production Ready**: Battle-tested by Pydantic team
 - ✅ **Zero Frontend Changes**: API contract remains identical
 
@@ -195,7 +193,6 @@ class OllamaAdapter(LLMClient):
 | **Conversation Memory** | None | Built-in `MessageHistory` |
 | **Tool Registration** | Manual dict mapping | `@agent.tool` decorator |
 | **Error Handling** | Custom try/except | Automatic validation |
-| **Observability** | structlog only | Logfire + OpenTelemetry |
 | **Code Complexity** | ~217 lines | ~50 lines (estimated) |
 | **Maintenance** | High | Low (framework handles it) |
 
@@ -268,25 +265,11 @@ from typing import Optional
 from pydantic_ai import Agent, RunContext
 from appscript import app as appscript_app
 import structlog
-import logfire  # REQUIRED for debugging and observability
 
 from src.models.schemas import ChatResponse, ChatChunk
 from src.orchestrator.prompts import SYSTEM_PROMPT
 
 logger = structlog.get_logger()
-
-# ============================================================================
-# Configure Logfire (REQUIRED - BEFORE creating agent)
-# ============================================================================
-
-logfire.configure(
-    service_name='baby-ai-backend',
-    service_version='1.1.0',
-    send_to_logfire='if-token-present',  # Uses local auth in dev, LOGFIRE_TOKEN in prod
-)
-
-# Instrument Pydantic AI for automatic tracing
-logfire.instrument_pydantic_ai()
 
 # ============================================================================
 # Create Pydantic AI Agent
@@ -320,11 +303,9 @@ def open_app(ctx: RunContext, appName: str) -> str:
     try:
         appscript_app(appName).activate()
         logger.info("open_app_success", app_name=appName)
-        logfire.info("App opened successfully", app_name=appName)  # Logfire tracing
         return f"I've opened {appName} successfully."
     except Exception as e:
         logger.error("open_app_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to open app", app_name=appName, error=str(e))  # Logfire error tracking
         return f"Failed to open {appName}: {str(e)}"
 
 
@@ -342,11 +323,9 @@ def close_app(ctx: RunContext, appName: str) -> str:
     try:
         appscript_app(appName).quit()
         logger.info("close_app_success", app_name=appName)
-        logfire.info("App closed successfully", app_name=appName)  # Logfire tracing
         return f"I've closed {appName} successfully."
     except Exception as e:
         logger.error("close_app_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to close app", app_name=appName, error=str(e))  # Logfire error tracking
         return f"Failed to close {appName}: {str(e)}"
 
 
@@ -601,20 +580,9 @@ pip list | grep -E "pydantic-ai|ollama"
 # ollama          (version already in requirements.txt)
 ```
 
-**Install Logfire (REQUIRED for debugging):**
-
-```bash
-# Install Logfire for observability and debugging
-pip install logfire==4.14.2
-
-# Add to requirements.txt
-echo "logfire==4.14.2" >> requirements.txt
-```
-
 **Note:**
 - ✅ `pydantic-ai==1.14.0` already in requirements.txt
 - ✅ `ollama` Python client already in requirements.txt (use existing version)
-- ✅ `logfire==4.14.2` REQUIRED for debugging and observability (latest stable version)
 - ⚠️ Ollama CLI 0.12.10+ must be installed separately (see Step 4)
 
 ### Step 4: Verify Qwen3-4B Model is Available
@@ -1016,7 +984,6 @@ cp -r backups/pre_pydantic_ai/llm src/
 1. **Faster Tool Execution**: Pydantic AI optimizes tool call batching
 2. **Better Error Handling**: Automatic retries with exponential backoff
 3. **Lower Maintenance**: Framework handles edge cases
-4. **Better Observability**: Built-in tracing with Logfire
 
 ### Performance Testing Script
 
@@ -1126,282 +1093,7 @@ router = Agent(
 )
 ```
 
-### 3. Logfire Integration - REQUIRED! 🔥
-
-**Pydantic Logfire** is an observability platform built specifically for AI applications. **This is REQUIRED for Baby AI** to enable effective debugging and monitoring. It provides:
-- 🔍 **Full tracing** of agent execution (tool calls, LLM requests, decision-making)
-- 📊 **Real-time dashboards** with SQL-powered analytics
-- 🐛 **Debugging** in development and production
-- 📈 **Performance monitoring** (latency, token usage, costs)
-- 🔗 **Built on OpenTelemetry** (open standards)
-
-**Official Docs:** https://pydantic.dev/logfire | https://logfire.pydantic.dev
-
----
-
-#### Installation & Setup
-
-**Step 1: Install Logfire**
-```bash
-pip install logfire
-```
-
-**Step 2: Authenticate (Development)**
-```bash
-# Create account at https://logfire.pydantic.dev
-logfire auth
-```
-
-**Step 3: Instrument Baby AI Backend**
-
-**Update `src/agents/pydantic_agent.py`:**
-
-```python
-"""
-Pydantic AI Agent for Baby AI with Logfire Observability
-"""
-
-import uuid
-import json
-from typing import Optional
-from pydantic_ai import Agent, RunContext
-from appscript import app as appscript_app
-import structlog
-import logfire  # ← Add Logfire
-
-from src.models.schemas import ChatResponse, ChatChunk
-from src.orchestrator.prompts import SYSTEM_PROMPT
-
-logger = structlog.get_logger()
-
-# ============================================================================
-# Configure Logfire (BEFORE creating agent)
-# ============================================================================
-
-logfire.configure(
-    service_name='baby-ai-backend',
-    service_version='1.1.0',
-    # In development: uses local auth token
-    # In production: uses LOGFIRE_TOKEN environment variable
-    send_to_logfire='if-token-present',  # Only send if token is available
-)
-
-# Instrument Pydantic AI globally
-logfire.instrument_pydantic_ai()
-
-# Optional: Instrument FastAPI for full request tracing
-# logfire.instrument_fastapi(app)  # Add to main.py after creating FastAPI app
-
-# ============================================================================
-# Create Pydantic AI Agent (with automatic instrumentation)
-# ============================================================================
-
-agent = Agent(
-    'ollama:qwen3:4b-thinking-2507-q4_K_M',
-    instructions=SYSTEM_PROMPT,
-    retries=3,
-)
-
-# Tools remain unchanged...
-@agent.tool
-def open_app(ctx: RunContext, appName: str) -> str:
-    """Open a macOS application by name."""
-    # Logfire automatically traces this tool call!
-    try:
-        appscript_app(appName).activate()
-        logfire.info("App opened", app_name=appName)  # Custom log
-        return f"I've opened {appName} successfully."
-    except Exception as e:
-        logfire.error("App open failed", app_name=appName, error=str(e))
-        return f"Failed to open {appName}: {str(e)}"
-```
-
-**Step 4: Update `src/main.py` (Optional - Full FastAPI Tracing)**
-
-```python
-from fastapi import FastAPI
-import logfire
-
-app = FastAPI(title="Baby AI Backend", version="1.1.0")
-
-# Instrument FastAPI for request/response tracing
-logfire.instrument_fastapi(app)
-
-# ... rest of main.py
-```
-
----
-
-#### What Gets Traced Automatically
-
-With `logfire.instrument_pydantic_ai()` enabled, Logfire captures:
-
-| Trace Type | Information Captured |
-|------------|---------------------|
-| **Agent Runs** | User message, final output, duration, retries |
-| **Tool Calls** | Tool name, arguments, results, execution time |
-| **LLM Requests** | Model, prompt tokens, completion tokens, cost estimate |
-| **Streaming** | Chunks, cumulative text, completion status |
-| **Errors** | Exception type, stack trace, retry attempts |
-| **Message History** | Full conversation context (if using message history) |
-
----
-
-#### Viewing Traces in Logfire Dashboard
-
-**1. Development:**
-```bash
-# Run backend with Logfire enabled
-python -m src.main
-
-# Send test request
-curl -X POST http://127.0.0.1:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Open Safari", "stream": false}'
-
-# Open Logfire dashboard
-# https://logfire.pydantic.dev
-```
-
-**2. What You'll See:**
-
-```
-🔍 Trace View:
-├─ POST /api/chat (200 OK, 2.3s)
-│  ├─ pydantic_ai.agent.run (user_message="Open Safari")
-│  │  ├─ ollama:qwen3 LLM call (tokens: 150, cost: $0.0001)
-│  │  ├─ tool_call: open_app(appName="Safari")
-│  │  │  └─ duration: 450ms, success: true
-│  │  ├─ ollama:qwen3 LLM call (tokens: 80, cost: $0.00005)
-│  │  └─ final_output: "I've opened Safari successfully."
-│  └─ response_sent: 200 OK
-```
-
-**3. SQL Queries:**
-
-Logfire supports SQL for analytics:
-
-```sql
--- Average response time by endpoint
-SELECT
-  span_name,
-  AVG(duration) as avg_duration,
-  COUNT(*) as total_calls
-FROM spans
-WHERE service_name = 'baby-ai-backend'
-GROUP BY span_name
-ORDER BY avg_duration DESC;
-
--- Tool usage statistics
-SELECT
-  attributes->>'tool_name' as tool,
-  COUNT(*) as calls,
-  AVG(duration) as avg_duration
-FROM spans
-WHERE span_name LIKE 'tool_call:%'
-GROUP BY tool;
-```
-
----
-
-#### Production Configuration
-
-**1. Create Logfire Write Token:**
-```bash
-# In Logfire dashboard: Settings → API Tokens → Create Write Token
-# Copy token
-```
-
-**2. Set Environment Variable:**
-```bash
-# .env or production environment
-LOGFIRE_TOKEN=your_write_token_here
-```
-
-**3. Update Configuration for Production:**
-
-```python
-import logfire
-import os
-
-logfire.configure(
-    service_name='baby-ai-backend',
-    service_version='1.1.0',
-    environment='production',  # or 'staging', 'development'
-    send_to_logfire='always',  # Always send in production
-    token=os.getenv('LOGFIRE_TOKEN'),  # Use env var token
-)
-```
-
----
-
-#### Cost & Pricing
-
-**Free Tier (Generous):**
-- ✅ Unlimited traces in development
-- ✅ 2GB/month ingestion in production
-- ✅ 7 days data retention
-- ✅ SQL querying included
-
-**For Baby AI Phase 10.1:**
-- Estimated: ~50MB/month (well within free tier)
-- No credit card required for free tier
-
-**Paid Plans (if needed later):**
-- Pro: $20/month (20GB ingestion, 30 days retention)
-- Team: Custom pricing (longer retention, team features)
-
----
-
-#### Benefits for Baby AI Development
-
-1. **Debugging Tool Calls:**
-   - See exactly which tools LLM decides to call
-   - Inspect arguments passed to tools
-   - Track failures and retries
-
-2. **Performance Optimization:**
-   - Identify slow tool executions
-   - Track LLM latency
-   - Monitor token usage and costs
-
-3. **Production Monitoring:**
-   - Alert on error rate spikes
-   - Track response time regressions
-   - Monitor user request patterns
-
-4. **Development Speed:**
-   - No need for print debugging
-   - Instant trace visualization
-   - SQL-powered analytics
-
----
-
-#### Integration Checklist
-
-**Development Setup:**
-- [ ] Install logfire: `pip install logfire`
-- [ ] Authenticate: `logfire auth`
-- [ ] Add `logfire.configure()` to `pydantic_agent.py`
-- [ ] Add `logfire.instrument_pydantic_ai()`
-- [ ] Test with `curl` request
-- [ ] Open Logfire dashboard and view traces
-
-**Production Setup:**
-- [ ] Create Logfire write token
-- [ ] Set `LOGFIRE_TOKEN` environment variable
-- [ ] Update `logfire.configure()` with `environment='production'`
-- [ ] Deploy backend with Logfire enabled
-- [ ] Set up alerts for error rates (optional)
-- [ ] Create custom dashboards (optional)
-
-**Optional Enhancements:**
-- [ ] Instrument FastAPI with `logfire.instrument_fastapi(app)`
-- [ ] Add custom logs with `logfire.info()`, `logfire.error()`
-- [ ] Create SQL queries for analytics
-- [ ] Set up Slack/email alerts for errors
-
-### 4. Structured Output Validation (Phase 10.4)
+### 3. Structured Output Validation (Phase 10.3)
 
 **Validate agent responses with Pydantic models:**
 
@@ -1474,8 +1166,6 @@ def open_app(ctx: RunContext, appName: str) -> str:
 - [ ] Install and verify dependencies:
   - [ ] `pip list | grep pydantic-ai` (should show 1.14.0)
   - [ ] `pip list | grep ollama` (already in requirements.txt)
-  - [ ] `pip install logfire` (**REQUIRED** for debugging)
-  - [ ] `logfire auth` (authenticate for development)
 - [ ] Verify Qwen3-4B model downloaded (`ollama pull qwen3:4b-thinking-2507-q4_K_M`)
 - [ ] Run unit tests (`pytest tests/test_pydantic_agent.py`)
 - [ ] Start backend (`python -m src.main`)
@@ -1483,15 +1173,7 @@ def open_app(ctx: RunContext, appName: str) -> str:
 - [ ] Test non-streaming (`curl -X POST .../api/chat -d '{"message":"Open Safari","stream":false}'`)
 - [ ] Test streaming (`curl -X POST .../api/chat -d '{"message":"Close Safari","stream":true}'`)
 
-**Logfire Setup (REQUIRED):**
-- [ ] Add `logfire.configure()` to `pydantic_agent.py` (see Section 3 below)
-- [ ] Add `logfire.instrument_pydantic_ai()` after configure
-- [ ] Add `import logfire` to tools for custom logging
-- [ ] Test request and verify traces appear in dashboard
-- [ ] Open https://logfire.pydantic.dev to view traces
-- [ ] Verify tool calls, LLM requests, and errors are being traced
-- [ ] (Recommended) Instrument FastAPI: `logfire.instrument_fastapi(app)` in main.py
-- [ ] (Production) Create write token and set `LOGFIRE_TOKEN` env var
+
 
 **Frontend Verification (No Changes):**
 - [ ] Start UI (`cd ui && npm run dev`)
@@ -1507,12 +1189,7 @@ def open_app(ctx: RunContext, appName: str) -> str:
 - [ ] Monitor logs for errors (`tail -f logs/baby-ai.log`)
 - [ ] Create backup of old code (`mkdir backups/pre_pydantic_ai`)
 - [ ] Document rollback procedure (see Rollback Strategy section)
-- [ ] Configure Logfire for production (REQUIRED):
-  - [ ] Create Logfire write token in dashboard
-  - [ ] Set `LOGFIRE_TOKEN` environment variable
-  - [ ] Configure `environment='production'` in logfire.configure()
-  - [ ] Set up error rate alerts (RECOMMENDED)
-  - [ ] Create SQL dashboards for monitoring (RECOMMENDED)
+
 
 ### Success Criteria
 
@@ -1533,8 +1210,7 @@ This document provides a **complete, production-ready implementation** for integ
 2. **Maintains 100% API compatibility** with existing frontend (zero changes required)
 3. **Improves reliability** with automatic retries, type safety, and validation
 4. **Simplifies maintenance** by delegating complexity to battle-tested framework
-5. **Enables future enhancements** (conversation memory, multi-agent, observability)
-6. **Includes Logfire integration** - production-grade observability for AI agents (**REQUIRED** for debugging)
+5. **Enables future enhancements** (conversation memory, multi-agent, structured outputs)
 
 **Next Steps:**
 1. Review this document with team
@@ -1545,9 +1221,9 @@ This document provides a **complete, production-ready implementation** for integ
 
 ---
 
-**Document Version:** 2.1 - CORRECTED (Based on Official Pydantic AI Docs)
-**Last Updated:** November 14, 2025
-**Status:** ✅ Ready for Implementation (All Corrections Applied)
+**Document Version:** 1.0
+**Last Updated:** November 15, 2025
+**Status:** ✅ Ready for Implementation
 **Official Reference:** https://ai.pydantic.dev
 **Estimated Implementation Time:** 2-4 hours
 **Risk Level:** Low (full rollback plan included)
