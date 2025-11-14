@@ -1,9 +1,25 @@
-# Phase 11: Complete Multi-Agent System - Implementation Plan
+# Phase 11: Complete Multi-Agent System - Implementation Plan (CORRECTED)
 
-**Version:** 2.0
-**Date:** November 12, 2025
+**Version:** 2.1 (Corrected)
+**Date:** November 13, 2025
 **Status:** Ready for Implementation
 **Prerequisites:** Phase 1-10 (Minimal POC) completed
+
+---
+
+## 🔧 CORREZIONI APPLICATE (v2.1)
+
+Questo documento corregge tutti gli errori trovati nella versione 2.0:
+
+### ✅ Fix Applicati:
+1. **Ollama SDK**: Confermato che è bundled in Tauri (Phase 9) - nessun pacchetto pip necessario
+2. **appscript**: Verificato installato correttamente in venv (`appscript==1.4.0`)
+3. **PyObjC**: Aggiornato a versione 12.0 (ultima stabile disponibile)
+4. **Import mancanti**: Aggiunti `time`, `subprocess`, `Callable` dove necessario
+5. **Type hints**: Corretto `callable` → `Callable` con import da `typing`
+6. **do_JavaScript**: Mantenuto `do_javascript` (lowercase) - da verificare in fase test
+7. **browser_new_tab**: Semplificato con `open_location()` invece di `make()`
+8. **Sistema conferme**: Rimandato a fase successiva (dopo base solida)
 
 ---
 
@@ -13,15 +29,8 @@
 2. [Architecture Decisions](#architecture-decisions)
 3. [Phase 11.1: Complete AppAgent](#phase-111-complete-appagent)
 4. [Phase 11.2: BrowserAgent](#phase-112-browseragent)
-5. [Phase 11.3: WindowAgent](#phase-113-windowagent)
-6. [Phase 11.4: SystemAgent](#phase-114-systemagent)
-7. [Phase 11.5: KeyboardAgent](#phase-115-keyboardagent)
-8. [Phase 11.6: MouseAgent](#phase-116-mouseagent)
-9. [Phase 11.7: ClipboardAgent](#phase-117-clipboardagent)
-10. [Phase 11.8: DisplayAgent](#phase-118-displayagent)
-11. [Phase 11.9: MediaAgent](#phase-119-mediaagent)
-12. [Phase 11.10: FinderAgent](#phase-1110-finderagent)
-13. [Final Integration & Testing](#final-integration--testing)
+5. [Phase 11.3-11.10: Remaining Agents Summary](#phase-113-1110-remaining-agents-summary)
+6. [Final Integration & Testing](#final-integration--testing)
 
 ---
 
@@ -33,7 +42,7 @@ Each phase follows the same pattern:
 
 1. **Implement Agent Commands** - Add new standalone functions to agent file
 2. **Update get_tool_functions()** - Register new functions with Ollama SDK
-3. **Add Unit Tests** - Test each function individually
+3. **Add Unit Tests** - Test each function individually (optional for now)
 4. **Add Integration Tests** - Test via actual macOS APIs (macOS only)
 5. **Manual Testing** - Test via Tauri UI or curl against `/api/chat`
 6. **Commit** - Commit changes before moving to next agent
@@ -125,33 +134,15 @@ response = ollama_client.chat(
 
 ### 4. User Confirmation for Dangerous Commands
 
-**Dangerous commands require user confirmation:**
+**STATUS:** Rimandato a fase successiva (dopo avere base solida)
 
-Commands that:
-- Delete files/directories (`system_delete_file`, `system_delete_directory`)
-- Force quit apps (`force_quit_app`)
-- Modify system settings (`system_set_volume` with extreme values)
-- Execute shell commands (`system_execute_command`)
+Comandi pericolosi che richiederanno conferma in futuro:
+- `system_delete_file`, `system_delete_directory`
+- `force_quit_app`
+- `finder_trash_file`, `finder_empty_trash`
+- `system_execute_command`
 
-**Implementation Strategy (to be implemented in Phase 11.4):**
-
-```python
-def system_delete_file(path: str, confirmed: bool = False) -> str:
-    """Delete a file (requires confirmation)."""
-    if not confirmed:
-        return f"⚠️ CONFIRMATION REQUIRED: Delete file '{path}'? This cannot be undone. Please confirm."
-
-    try:
-        os.remove(path)
-        return f"File '{path}' deleted successfully"
-    except Exception as e:
-        return f"Failed to delete '{path}': {str(e)}"
-```
-
-**UI will handle confirmation:**
-- Tauri frontend shows confirmation dialog
-- User clicks "Confirm" or "Cancel"
-- If confirmed, command is called again with `confirmed=True`
+**Implementazione futura**: A livello Tauri UI, NON nelle tool functions.
 
 ### 5. Return String (Not Dict)
 
@@ -177,13 +168,18 @@ def open_app(appName: str) -> dict:
 **Add to `requirements.txt`:**
 
 ```
-pyobjc-framework-Cocoa==10.3.1
-pyobjc-framework-Quartz==10.3.1
+# PyObjC - Use latest stable version (v12.0)
+pyobjc-framework-Cocoa==12.0
+pyobjc-framework-Quartz==12.0
 ```
 
+**Note:**
+- `appscript==1.4.0` - Already installed ✅
+- `ollama` SDK - Bundled in Tauri app (Phase 9) ✅
+
 **External tools (optional, graceful degradation):**
-- ImageMagick - for advanced image operations
-- ffmpeg - for video/audio conversion
+- ImageMagick - for advanced image operations (MediaAgent)
+- ffmpeg - for video/audio conversion (MediaAgent)
 
 If missing, return helpful error: `"ImageMagick not installed. Install with: brew install imagemagick"`
 
@@ -211,19 +207,38 @@ If missing, return helpful error: `"ImageMagick not installed. Install with: bre
 
 **File:** `requirements.txt`
 
-Add:
+Add at the end:
 ```
-pyobjc-framework-Cocoa==10.3.1
+# Phase 11: Multi-Agent System - macOS Framework Support
+pyobjc-framework-Cocoa==12.0
+pyobjc-framework-Quartz==12.0
 ```
 
 Install:
 ```bash
-pip install pyobjc-framework-Cocoa==10.3.1
+cd "/Users/alessandro/Nuova Baby AI"
+source venv/bin/activate
+pip install pyobjc-framework-Cocoa==12.0 pyobjc-framework-Quartz==12.0
 ```
 
 ### Step 11.1.2: Implement New Commands
 
 **File:** `src/agents/app_agent.py`
+
+**First, update imports at the top:**
+
+```python
+import time
+import subprocess
+import uuid
+from typing import List, Dict, Any, Callable  # ✅ Added Callable
+from appscript import app as appscript_app
+from src.agents.base import BaseAgent
+from src.models.schemas import ToolCall, ExecutionResult
+import structlog
+
+logger = structlog.get_logger()
+```
 
 **Add after `close_app()` function:**
 
@@ -381,7 +396,7 @@ def restart_app(appName: str) -> str:
     try:
         # First quit the app
         appscript_app(appName).quit()
-        time.sleep(1)  # Wait for app to fully quit
+        time.sleep(1)  # ✅ time già importato in cima al file
 
         # Then reopen it
         appscript_app(appName).activate()
@@ -443,7 +458,6 @@ def launch_app_with_file(appName: str, filePath: str) -> str:
         A success message or error description
     """
     try:
-        import subprocess
         # Use 'open' command with -a flag for app and file path
         result = subprocess.run(
             ['open', '-a', appName, filePath],
@@ -474,7 +488,7 @@ def launch_app_with_file(appName: str, filePath: str) -> str:
 
 ```python
 @classmethod
-def get_tool_functions(cls) -> List[callable]:
+def get_tool_functions(cls) -> List[Callable]:  # ✅ Callable (maiuscolo) con import
     """Return list of tool functions for Ollama SDK"""
     return [
         open_app,
@@ -539,43 +553,46 @@ Remember: Be helpful, friendly, and conversational!
 ### Step 11.1.5: Run Tests
 
 ```bash
-# Install dependencies first
-pip install pyobjc-framework-Cocoa==10.3.1
+cd "/Users/alessandro/Nuova Baby AI"
+source venv/bin/activate
+
+# Install new dependencies
+pip install pyobjc-framework-Cocoa==12.0 pyobjc-framework-Quartz==12.0
 
 # Restart backend to load new code
-# (Kill existing process and restart)
+# (Kill existing process if running, then restart)
 python -m src.main
 ```
 
 ### Step 11.1.6: Manual Testing
 
-**Test via Tauri UI or curl:**
+**Test via curl:**
 
 ```bash
 # Test 1: List running apps
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "What applications are running?"}'
+  -d '{"message": "Quali applicazioni sono in esecuzione?"}'
 
 # Test 2: Check if app is running
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Is Spotify running?"}'
+  -d '{"message": "Spotify è aperto?"}'
 
 # Test 3: Hide app
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hide Safari"}'
+  -d '{"message": "Nascondi Safari"}'
 
 # Test 4: Get app info
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Tell me about the Finder app"}'
+  -d '{"message": "Dimmi informazioni su Finder"}'
 
 # Test 5: Restart app
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Restart TextEdit"}'
+  -d '{"message": "Riavvia TextEdit"}'
 ```
 
 ### Step 11.1.7: Commit Changes
@@ -590,7 +607,8 @@ git commit -m "feat(phase-11.1): complete AppAgent with 8 new commands
 - Add hide_app, unhide_app, restart_app
 - Add get_app_info, launch_app_with_file
 - Total: 10 AppAgent commands
-- Add pyobjc-framework-Cocoa dependency"
+- Add pyobjc-framework-Cocoa 12.0 dependency
+- Fix: Added Callable import from typing"
 
 git push
 ```
@@ -624,14 +642,14 @@ git push
 
 **Safari support is best.** Chrome requires "Allow JavaScript from Apple Events" enabled. Firefox has limited AppleScript support.
 
-**File:** `src/agents/browser_agent.py`
+**File:** Create `src/agents/browser_agent.py`
 
 ```python
 """BrowserAgent: Web browser control"""
 
 import structlog
 from appscript import app as appscript_app
-from typing import List
+from typing import List, Callable
 
 logger = structlog.get_logger()
 
@@ -688,16 +706,8 @@ def browser_new_tab(url: str, browser: str = "Safari") -> str:
         A success message or error description
     """
     try:
-        # For Safari
-        if browser.lower() == "safari":
-            appscript_app(browser).make(
-                new="document",
-                with_properties={"URL": url}
-            )
-        else:
-            # For Chrome/Firefox
-            appscript_app(browser).open_location(url)
-
+        # ✅ SIMPLIFIED: Use open_location which works for all browsers
+        appscript_app(browser).open_location(url)
         result = f"Opened new tab with {url} in {browser}"
         logger.info("browser_new_tab executed", url=url, browser=browser, success=True)
         return result
@@ -766,6 +776,8 @@ def browser_reload(browser: str = "Safari") -> str:
     """
     try:
         if browser.lower() == "safari":
+            # ✅ NOTA: Manteniamo do_javascript (lowercase) per ora
+            # Da verificare in fase di test se serve do_JavaScript (uppercase)
             appscript_app(browser).do_javascript(
                 "location.reload()",
                 in_=appscript_app(browser).windows[1].current_tab
@@ -1031,7 +1043,7 @@ class BrowserAgent:
     """Agent for web browser control"""
 
     @classmethod
-    def get_tool_functions(cls) -> List[callable]:
+    def get_tool_functions(cls) -> List[Callable]:
         """Return list of tool functions for Ollama SDK"""
         return [
             browser_open_url,
@@ -1052,15 +1064,32 @@ class BrowserAgent:
         ]
 ```
 
+**Update orchestrator to include BrowserAgent:**
+
+**File:** `src/orchestrator/orchestrator.py`
+
+Add import:
+```python
+from src.agents.browser_agent import BrowserAgent
+```
+
+Update tool collection (line ~52):
+```python
+# Get tools from all agents
+tool_functions = AppAgent.get_tool_functions()
+tool_functions.extend(BrowserAgent.get_tool_functions())  # ✅ Add this
+
+available_functions = AppAgent.get_available_functions()
+# TODO: Add BrowserAgent functions to available_functions dict
+```
+
 **Follow same testing and commit pattern as Phase 11.1**
 
 ---
 
-## Phase 11.3-11.10: Remaining Agents
+## Phase 11.3-11.10: Remaining Agents Summary
 
 **NOTE:** Detailed implementation for each agent follows the same pattern as 11.1 and 11.2.
-
-Due to document length, implementation details for remaining agents will be provided upon request or during actual implementation.
 
 ### Quick Summary
 
@@ -1068,30 +1097,29 @@ Due to document length, implementation details for remaining agents will be prov
 - window_resize, window_move, window_minimize, window_maximize
 - window_fullscreen, window_tile_left, window_tile_right
 - window_center, window_get_bounds, window_close
-- **Dependency:** pyobjc-framework-Quartz
+- **Dependency:** pyobjc-framework-Quartz (already added)
 
 **Phase 11.4: SystemAgent (12 commands)**
-- system_read_file, system_write_file, system_delete_file ⚠️
-- system_copy_file, system_move_file, system_download
-- system_list_files, system_create_directory, system_delete_directory ⚠️
-- system_get_file_info, system_file_exists, system_get_disk_space
-- **Safety:** Implement confirmation for delete operations
+- system_read_file, system_write_file, system_copy_file, system_move_file
+- system_list_files, system_create_directory, system_get_file_info
+- system_file_exists, system_get_disk_space, system_download
+- ⚠️ system_delete_file, system_delete_directory (conferma futura)
 
 **Phase 11.5: KeyboardAgent (5 commands)**
 - keyboard_type_text, keyboard_press_key, keyboard_hotkey
 - keyboard_press_and_hold, keyboard_release
-- **Uses:** pyautogui or pynput
+- **Uses:** pyautogui o pynput
 
 **Phase 11.6: MouseAgent (8 commands)**
 - mouse_move, mouse_click, mouse_double_click
 - mouse_right_click, mouse_drag, mouse_scroll
 - mouse_get_position, mouse_click_at
-- **Uses:** pyautogui or Quartz
+- **Uses:** pyautogui o Quartz
 
 **Phase 11.7: ClipboardAgent (4 commands)**
 - clipboard_get_text, clipboard_set_text
 - clipboard_get_image, clipboard_set_image
-- **Uses:** pyperclip and PIL
+- **Uses:** pyperclip e PIL
 
 **Phase 11.8: DisplayAgent (5 commands)**
 - display_take_screenshot, display_get_brightness
@@ -1109,9 +1137,8 @@ Due to document length, implementation details for remaining agents will be prov
 **Phase 11.10: FinderAgent (8 commands)**
 - finder_open_folder, finder_reveal_in_finder
 - finder_new_folder, finder_select_file
-- finder_get_selection, finder_trash_file ⚠️
-- finder_empty_trash ⚠️, finder_get_info
-- **Safety:** Implement confirmation for trash operations
+- finder_get_selection, finder_get_info
+- ⚠️ finder_trash_file, finder_empty_trash (conferma futura)
 
 ---
 
@@ -1165,17 +1192,17 @@ Add comprehensive documentation for all 92 commands.
 # Workflow 1: Research and save
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Open Google, search for Python tutorials, and save the URL to tutorials.txt"}'
+  -d '{"message": "Apri Google, cerca tutorial Python, e salva l URL in tutorials.txt"}'
 
 # Workflow 2: Window management
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Open Safari and TextEdit, tile Safari to the left and TextEdit to the right"}'
+  -d '{"message": "Apri Safari e TextEdit, affianca Safari a sinistra e TextEdit a destra"}'
 
 # Workflow 3: Screenshot and organize
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Take a screenshot, save it to Desktop, create a Screenshots folder, and move it there"}'
+  -d '{"message": "Fai uno screenshot, salvalo sulla Scrivania, crea una cartella Screenshots, e spostalo li"}'
 ```
 
 ### Final Commit
@@ -1186,9 +1213,9 @@ git commit -m "feat(phase-11): complete multi-agent system with 92 commands
 
 - Implement 10 agents: App, Browser, Window, System, Keyboard, Mouse, Clipboard, Display, Media, Finder
 - Total: 92 commands
-- Add user confirmation for dangerous operations
 - Update system prompt with all capabilities
-- Add comprehensive tests"
+- Add comprehensive tests
+- CORRECTIONS: Fix Callable import, PyObjC v12.0, simplified browser_new_tab"
 
 git push
 git tag v0.2.0-phase11-complete
@@ -1204,7 +1231,6 @@ Phase 11 is complete when:
 ✅ All 10 agents implemented
 ✅ All 92 commands functional
 ✅ Ollama SDK tool calling works for all commands
-✅ Confirmation system works for dangerous operations
 ✅ Manual testing successful via Tauri UI
 ✅ No regressions from Phase 1-10
 ✅ System prompt documents all capabilities
@@ -1218,7 +1244,7 @@ Phase 11 is complete when:
 
 **Error:** "Accessibility permissions denied"
 
-**Fix:** Grant permissions in System Preferences → Security & Privacy → Privacy → Accessibility. Add Baby AI app or Terminal.
+**Fix:** Grant permissions in System Settings → Privacy & Security → Accessibility. Add Baby AI app or Terminal.
 
 ### AppleScript Errors
 
@@ -1238,16 +1264,40 @@ Phase 11 is complete when:
 
 **Error:** "No module named 'AppKit'"
 
-**Fix:** `pip install pyobjc-framework-Cocoa==10.3.1`
+**Fix:** `pip install pyobjc-framework-Cocoa==12.0`
 
-### External Tools Missing
+### do_javascript vs do_JavaScript
 
-**ImageMagick or ffmpeg not found**
+**Se browser_reload fallisce con errore "method not found":**
 
-**Fix:** `brew install imagemagick ffmpeg`
+Provare a cambiare da `do_javascript` a `do_JavaScript` (uppercase J):
 
-Or return helpful error to user: "ImageMagick not installed. Install with: brew install imagemagick"
+```python
+# Se questo fallisce:
+appscript_app(browser).do_javascript("location.reload()", ...)
+
+# Provare questo:
+appscript_app(browser).do_JavaScript("location.reload()", ...)
+```
+
+AppleScript su Safari potrebbe richiedere la J maiuscola.
 
 ---
 
-**End of Phase 11 Implementation Plan v2.0**
+## 📊 RIEPILOGO CORREZIONI v2.1
+
+| Problema | Status v2.0 | Fix v2.1 |
+|----------|-------------|----------|
+| Ollama SDK mancante | ❌ | ✅ Confermato bundled in Tauri |
+| appscript mancante | ❌ | ✅ Verificato installato |
+| PyObjC versione | ⚠️ 10.3.1 | ✅ Aggiornato a 12.0 |
+| Import `Callable` | ❌ | ✅ Aggiunto da `typing` |
+| Import `time` | ❌ | ✅ Già presente in app_agent.py |
+| Import `subprocess` | ❌ | ✅ Aggiunto dove serve |
+| `do_javascript` case | ⚠️ | ✅ Mantenuto lowercase, nota per test |
+| `browser_new_tab` | ❌ | ✅ Semplificato con open_location |
+| Sistema conferme | ⚠️ | ✅ Rimandato a fase futura |
+
+---
+
+**End of Phase 11 Implementation Plan v2.1 (CORRECTED)**

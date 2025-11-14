@@ -26,14 +26,54 @@ Il sistema adotta un'architettura a **Microservizi disaccoppiati** e a **Orchest
 
 ### 1.2 Architettura Modulare (Espandibilità Bimodale) - ROADMAP FUTURA
 
-> **NOTA:** L'iniezione e l'attivazione di Plugin e Estensioni sono controllate esclusivamente dall'Utente.
+> **NOTA:** L'iniezione e l'attivazione di Plugin e Estensioni sono controllate dall'Utente, con supporto per **suggerimenti intelligenti dell'LLM**.
 > **STATO ATTUALE:** Phase 1.1 POC - Architettura monolitica con singolo App Agent
 > **EVOLUZIONE:** Plugin/Estensioni implementati in fasi successive
 
+### 1.2.1 Sistema di Caricamento Plugin Intelligente (Smart Plugin Loading)
+
+**Modalità di Attivazione Plugin/Estensioni:**
+
+1. **Manuale**: Utente attiva/disattiva plugin/estensioni tramite UI
+2. **LLM-Assisted** ⭐: L'LLM rileva la necessità e **richiede conferma** all'utente
+3. **Contestuale**: Suggerimenti automatici in base al tipo di richiesta
+
+**Flusso LLM-Assisted Loading (Plugin Funzionali):**
+```
+Utente: "Vorrei creare playlist avanzate su Spotify"
+↓
+LLM: Rileva necessità di funzionalità non disponibili
+↓
+LLM: "Per creare playlist avanzate ho trovato il plugin 'Spotify Advanced Manager'.
+      Vuoi che lo attivi? [Sì] [No] [Dettagli]"
+↓
+Utente: [Conferma]
+↓
+Sistema: Carica plugin dinamicamente
+↓
+LLM: Prosegue con la richiesta usando le nuove funzionalità
+```
+
+**Flusso LLM-Assisted Loading (Estensioni UI):**
+```
+Utente: "Voglio disegnare il mockup dell'interfaccia"
+↓
+LLM: Rileva necessità di interfaccia visuale
+↓
+LLM: "Per disegnare mockup ho l'estensione 'Visual Designer' con canvas integrato.
+      Vuoi che la attivi? [Sì] [No] [Dettagli]"
+↓
+Utente: [Conferma]
+↓
+Sistema: Carica estensione UI (aggiorna manifesto JSON + componenti React)
+↓
+LLM: "Perfetto! Ora puoi usare il canvas. Cosa vuoi disegnare?"
+```
+
 | Modulo | Tipo | Funzionalità | Metodo di Iniezione (Controllo Utente) |
 |--------|------|--------------|----------------------------------------|
-| **Plugin Funzionale** | **Logica di Backend (Python)** | Aggiunge nuovi Tools/Function Calling e sorgenti di conoscenza (RAG DB). | Caricamento dinamico tramite `importlib` all'avvio del Backend. L'LLM può assistere nella scrittura, ma non esegue l'iniezione automatica. |
-| **Estensione UI** | **Frontend/Backend (Ibrido)** | Aggiunge elementi UI dedicati (es. chat LLM Esterna). | Il Frontend interroga un Manifesto JSON esposto dal Backend per il rendering dinamico dei componenti React. |
+| **Plugin Funzionale** | **Logica di Backend (Python)** | Aggiunge nuovi Tools/Function Calling e sorgenti di conoscenza (RAG DB). | **Caricamento dinamico tramite `importlib`. L'LLM può rilevare necessità e richiedere attivazione con conferma utente. Caricamento anche manuale tramite UI.** |
+| **Estensione UI** | **Frontend/Backend (Ibrido)** | Aggiunge elementi UI dedicati (es. Voice Chat, Visual Designer, Canvas). | **Il Frontend interroga un Manifesto JSON esposto dal Backend. L'LLM può suggerire estensioni UI appropriate e richiedere attivazione con conferma utente. Caricamento anche manuale tramite UI.** |
 
 ### 1.3 Interfacce API (Frontend ↔ Backend Core)
 
@@ -50,7 +90,13 @@ Il Backend Core esporrà un'API REST locale per la comunicazione con il Frontend
 | Endpoint Proposto | Metodo | Descrizione |
 |-------------------|--------|-------------|
 | `/api/llm_external/{id}` | POST | **FUTURO** - Invia prompt Utente direttamente all'LLM Esterna (Modalità Esterna Esclusiva), bypassando l'Orchestratore. |
-| `/api/extensions/manifest` | GET | **FUTURO** - Il Frontend interroga questo endpoint per ottenere il Manifesto JSON delle Estensioni attive. |
+| `/api/extensions/manifest` | GET | **FUTURO** - Il Frontend interroga questo endpoint per ottenere il Manifesto JSON delle Estensioni UI attive. |
+| `/api/extensions/available` | GET | **FUTURO** - Lista estensioni UI disponibili per installazione. |
+| `/api/extensions/activate` | POST | **FUTURO** - Attiva un'estensione UI specifica dopo conferma utente. |
+| `/api/extensions/request_approval` | POST | **FUTURO** - L'LLM richiede approvazione utente per attivare un'estensione UI necessaria. |
+| `/api/plugins/available` | GET | **FUTURO** - Lista plugin funzionali disponibili per installazione (sia locali che da repository). |
+| `/api/plugins/activate` | POST | **FUTURO** - Attiva un plugin funzionale specifico dopo conferma utente. |
+| `/api/plugins/request_approval` | POST | **FUTURO** - L'LLM richiede approvazione utente per attivare un plugin funzionale necessario. |
 | `/api/teaching/{action}` | POST | **FUTURO** - Gestisce le operazioni CRUD (Create, Read, Update, Delete) sulle lezioni e l'archiviazione. |
 | `/api/safety/approve` | POST | **FUTURO** - Riceve la conferma esplicita dell'utente per eseguire un Tool in blocco di sicurezza (Comando Pericoloso/Super Pericoloso). |
 
