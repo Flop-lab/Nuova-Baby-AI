@@ -54,7 +54,7 @@
 
 **Current State:**
 - ✅ `src/agents/pydantic_agent.py` with 2 tools: `open_app`, `close_app`
-- ✅ Pydantic AI working with Ollama + Logfire
+- ✅ Pydantic AI working with Ollama
 - ✅ Frontend integrated and tested
 
 **Target State:**
@@ -270,7 +270,7 @@ pip install pyobjc-framework-Cocoa==12.0
 
 **IMPORTANT:** Add these imports at the TOP of the file, after the existing imports.
 
-**Current imports (lines 8-20):**
+**Current imports (lines 8-19):**
 ```python
 import os
 import uuid
@@ -281,7 +281,6 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 from appscript import app as appscript_app
 import structlog
-import logfire  # REQUIRED for debugging and observability
 
 from src.models.schemas import ChatResponse, ChatChunk
 from src.orchestrator.prompts import SYSTEM_PROMPT
@@ -308,7 +307,6 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 from appscript import app as appscript_app
 import structlog
-import logfire  # REQUIRED for debugging and observability
 
 from src.models.schemas import ChatResponse, ChatChunk
 from src.orchestrator.prompts import SYSTEM_PROMPT
@@ -342,13 +340,11 @@ def list_running_apps(ctx: RunContext) -> str:
         if app_names:
             result = f"Running applications: {', '.join(sorted(app_names))}"
             logger.info("list_running_apps_executed", count=len(app_names))
-            logfire.info("Listed running apps", count=len(app_names))
             return result
         else:
             return "No running applications found"
     except Exception as e:
         logger.error("list_running_apps_failed", error=str(e))
-        logfire.error("Failed to list running apps", error=str(e))
         return f"Failed to list running applications: {str(e)}"
 
 
@@ -371,15 +367,12 @@ def is_app_running(ctx: RunContext, appName: str) -> str:
             name = app.localizedName()
             if name and name.lower() == appName.lower():
                 logger.info("is_app_running_executed", app_name=appName, running=True)
-                logfire.info("App is running", app_name=appName)
                 return f"Yes, '{appName}' is currently running"
 
         logger.info("is_app_running_executed", app_name=appName, running=False)
-        logfire.info("App is not running", app_name=appName)
         return f"No, '{appName}' is not running"
     except Exception as e:
         logger.error("is_app_running_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to check app status", app_name=appName, error=str(e))
         return f"Failed to check if '{appName}' is running: {str(e)}"
 
 
@@ -396,11 +389,9 @@ def focus_app(ctx: RunContext, appName: str) -> str:
     try:
         appscript_app(appName).activate()
         logger.info("focus_app_executed", app_name=appName)
-        logfire.info("App focused", app_name=appName)
         return f"Application '{appName}' brought to foreground"
     except Exception as e:
         logger.error("focus_app_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to focus app", app_name=appName, error=str(e))
         return f"Failed to focus '{appName}': {str(e)}"
 
 
@@ -424,15 +415,12 @@ def hide_app(ctx: RunContext, appName: str) -> str:
             if name and name.lower() == appName.lower():
                 app.hide()
                 logger.info("hide_app_executed", app_name=appName)
-                logfire.info("App hidden", app_name=appName)
                 return f"Application '{appName}' hidden successfully"
 
         logger.error("hide_app_failed", app_name=appName, error="App not running")
-        logfire.error("Cannot hide app - not running", app_name=appName)
         return f"Application '{appName}' is not running"
     except Exception as e:
         logger.error("hide_app_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to hide app", app_name=appName, error=str(e))
         return f"Failed to hide '{appName}': {str(e)}"
 
 
@@ -456,15 +444,12 @@ def unhide_app(ctx: RunContext, appName: str) -> str:
             if name and name.lower() == appName.lower():
                 app.unhide()
                 logger.info("unhide_app_executed", app_name=appName)
-                logfire.info("App unhidden", app_name=appName)
                 return f"Application '{appName}' shown successfully"
 
         logger.error("unhide_app_failed", app_name=appName, error="App not running")
-        logfire.error("Cannot unhide app - not running", app_name=appName)
         return f"Application '{appName}' is not running"
     except Exception as e:
         logger.error("unhide_app_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to unhide app", app_name=appName, error=str(e))
         return f"Failed to unhide '{appName}': {str(e)}"
 
 
@@ -483,11 +468,9 @@ def restart_app(ctx: RunContext, appName: str) -> str:
         time.sleep(1)
         appscript_app(appName).activate()
         logger.info("restart_app_executed", app_name=appName)
-        logfire.info("App restarted", app_name=appName)
         return f"Application '{appName}' restarted successfully"
     except Exception as e:
         logger.error("restart_app_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to restart app", app_name=appName, error=str(e))
         return f"Failed to restart '{appName}': {str(e)}"
 
 
@@ -519,15 +502,12 @@ def get_app_info(ctx: RunContext, appName: str) -> str:
                 info += f"Visibility: {'Hidden' if is_hidden else 'Visible'}"
 
                 logger.info("get_app_info_executed", app_name=appName)
-                logfire.info("Got app info", app_name=appName, bundle_id=bundle_id)
                 return info
 
         logger.error("get_app_info_failed", app_name=appName, error="App not found")
-        logfire.error("Cannot get app info - not running", app_name=appName)
         return f"Application '{appName}' is not running or not found"
     except Exception as e:
         logger.error("get_app_info_failed", app_name=appName, error=str(e))
-        logfire.error("Failed to get app info", app_name=appName, error=str(e))
         return f"Failed to get info for '{appName}': {str(e)}"
 
 
@@ -552,15 +532,12 @@ def launch_app_with_file(ctx: RunContext, appName: str, filePath: str) -> str:
 
         if result.returncode == 0:
             logger.info("launch_app_with_file_executed", app_name=appName, file_path=filePath)
-            logfire.info("Launched app with file", app_name=appName, file_path=filePath)
             return f"Opened '{filePath}' with '{appName}'"
         else:
             logger.error("launch_app_with_file_failed", app_name=appName, error=result.stderr)
-            logfire.error("Failed to launch app with file", app_name=appName, error=result.stderr)
             return f"Failed to open file: {result.stderr}"
     except Exception as e:
         logger.error("launch_app_with_file_failed", app_name=appName, file_path=filePath, error=str(e))
-        logfire.error("Failed to launch app with file", app_name=appName, error=str(e))
         return f"Failed to launch '{appName}' with file '{filePath}': {str(e)}"
 ```
 
@@ -742,11 +719,9 @@ def browser_open_url(ctx: RunContext, url: str, browser: str = "Safari") -> str:
         browser_app = appscript_app(browser)
         browser_app.open_location(url)
         logger.info("browser_open_url_executed", url=url, browser=browser)
-        logfire.info("Opened URL in browser", url=url, browser=browser)
         return f"Opened '{url}' in {browser}"
     except Exception as e:
         logger.error("browser_open_url_failed", url=url, browser=browser, error=str(e))
-        logfire.error("Failed to open URL", url=url, browser=browser, error=str(e))
         return f"Failed to open '{url}' in {browser}: {str(e)}"
 ```
 
@@ -1008,7 +983,6 @@ git push --tags
 - ✅ All tools in single file: `src/agents/pydantic_agent.py`
 - ✅ All tools use `@agent.tool` decorator
 - ✅ Pydantic AI handles tool calling automatically
-- ✅ Logfire tracing built-in
 - ✅ Simpler architecture, less code
 - ✅ All imports at top of file (consistent pattern)
 - ✅ **Native macOS APIs only** - professional approach
