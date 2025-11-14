@@ -110,11 +110,8 @@ This document provides a **complete, production-ready implementation** for integ
 
 #### 1. Pydantic AI Installed ✅
 ```bash
-# From requirements.txt line 117
-pydantic-ai==1.14.0
+# From requirements.txt - ONLY pydantic-ai-slim needed (without Logfire)
 pydantic-ai-slim==1.14.0
-pydantic-evals==1.14.0
-pydantic-graph==1.14.0
 ```
 
 #### 2. Working Custom Orchestrator ✅
