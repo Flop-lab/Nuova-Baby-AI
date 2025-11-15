@@ -56,7 +56,7 @@ async def chat(request: ChatRequest):
         # Non-streaming mode
         response = await run_agent_non_streaming(request.message)
 
-        logger.info("chat_response_sent", reply_length=len(response.reply))
+        logger.info("chat_response_sent", reply_length=len(response.reply), ai_reply=response.reply)
         return response
 
     except HTTPException:
