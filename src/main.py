@@ -12,7 +12,7 @@ from src.agents.pydantic_agent import (
 from src.utils.logger import setup_logging
 
 # Setup logging
-setup_logging()
+setup_logging(log_level="INFO")
 logger = structlog.get_logger()
 
 app = FastAPI(title="Baby AI Backend", version="1.1.0")
