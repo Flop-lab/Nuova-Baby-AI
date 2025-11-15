@@ -135,8 +135,8 @@ impl BackendManager {
             .ok_or("No parent dir")?
             .to_path_buf();
 
-        // Production: Contents/MacOS/../Resources/ollama
-        let production_path = exe_dir.join("../Resources/ollama");
+        // Production: Contents/MacOS/ollama (same directory as baby-ai executable)
+        let production_path = exe_dir.join("ollama");
         if production_path.exists() {
             return Ok(production_path);
         }
@@ -154,7 +154,9 @@ impl BackendManager {
         let home = env::var("HOME")
             .map_err(|_| "HOME environment variable not set")?;
 
-        let models_dir = format!("{}/Library/Application Support/Baby AI/Ollama/models", home);
+        // Use standard Ollama models directory instead of custom path
+        // This allows Baby AI to use models already downloaded by the user
+        let models_dir = format!("{}/.ollama/models", home);
 
         // Create directory if it doesn't exist
         std::fs::create_dir_all(&models_dir)

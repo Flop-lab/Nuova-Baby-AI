@@ -15,26 +15,47 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             println!("🚀 Baby AI starting...");
+            eprintln!("🚀 Baby AI starting... (stderr)");
 
             // Initialize backend manager
             let mut backend_manager = BackendManager::new();
 
             // Start Ollama server
-            if let Err(e) = backend_manager.start_ollama() {
-                eprintln!("❌ Failed to start Ollama: {}", e);
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Ollama startup failed: {}", e)
-                )));
+            println!("📦 Starting Ollama...");
+            eprintln!("📦 Starting Ollama... (stderr)");
+            match backend_manager.start_ollama() {
+                Ok(_) => {
+                    println!("✅ Ollama started successfully");
+                    eprintln!("✅ Ollama started successfully (stderr)");
+                }
+                Err(e) => {
+                    let error_msg = format!("Failed to start Ollama: {}", e);
+                    eprintln!("❌ {}", error_msg);
+
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        error_msg
+                    )));
+                }
             }
 
             // Start Python backend
-            if let Err(e) = backend_manager.start_python_backend() {
-                eprintln!("❌ Failed to start Python backend: {}", e);
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Backend startup failed: {}", e)
-                )));
+            println!("🐍 Starting Python backend...");
+            eprintln!("🐍 Starting Python backend... (stderr)");
+            match backend_manager.start_python_backend() {
+                Ok(_) => {
+                    println!("✅ Python backend started successfully");
+                    eprintln!("✅ Python backend started successfully (stderr)");
+                }
+                Err(e) => {
+                    let error_msg = format!("Failed to start Python backend: {}", e);
+                    eprintln!("❌ {}", error_msg);
+
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        error_msg
+                    )));
+                }
             }
 
             // Store backend manager in app state
@@ -43,6 +64,7 @@ fn main() {
             });
 
             println!("✅ Baby AI ready!");
+            eprintln!("✅ Baby AI ready! (stderr)");
 
             Ok(())
         })

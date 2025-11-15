@@ -11,8 +11,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def main():
     """Start the FastAPI backend server."""
+    # Import directly instead of using string import
+    # This works better with PyInstaller
+    from src.main import app
+
     uvicorn.run(
-        "src.main:app",
+        app,
         host="127.0.0.1",
         port=8000,
         log_level="info"
